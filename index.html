@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sổ Lịch · Xếp lịch học bằng CSP &amp; AI</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1C2230; --ink-soft:#4A5163;
+    --paper:#F6F3EC; --paper-raised:#FFFFFF; --paper-dim:#ECE7DA;
+    --line:#D8D1BE;
+    --amber:#C98A2B; --amber-soft:#F1DFB8;
+    --forest:#3E6B54; --forest-soft:#D9E6DC;
+    --plum:#7C5A82; --plum-soft:#E7DCE9;
+    --clay:#B0503F; --clay-soft:#F0D9D0;
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#EDEAE0; --ink-soft:#B7B2A1;
+      --paper:#181B22; --paper-raised:#20242D; --paper-dim:#141720;
+      --line:#333947;
+      --amber-soft:#3A3121; --forest-soft:#20302A; --plum-soft:#2C2634; --clay-soft:#332320;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#EDEAE0; --ink-soft:#B7B2A1;
+    --paper:#181B22; --paper-raised:#20242D; --paper-dim:#141720;
+    --line:#333947;
+    --amber-soft:#3A3121; --forest-soft:#20302A; --plum-soft:#2C2634; --clay-soft:#332320;
+  }
+  body{ background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans',ui-sans-serif,system-ui; overflow-x:hidden; }
+  .serif{ font-family:'Fraunces',serif; }
+  .mono{ font-family:'IBM Plex Mono',monospace; }
+  .hairline{ border-color:var(--line); }
+  .card{ background:var(--paper-raised); border:1px solid var(--line); border-radius:10px; }
+  .scrollx{ overflow-x:auto; }
+  ::-webkit-scrollbar{ height:8px; width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; }
+  .btn{ font-weight:500; border-radius:8px; padding:.5rem 1rem; transition:transform .12s ease, background .15s ease; }
+  .btn:active{ transform:scale(.97); }
+  .btn-ink{ background:var(--ink); color:var(--paper); }
+  .btn-ink:hover{ opacity:.88; }
+  .btn-line{ border:1px solid var(--line); color:var(--ink); }
+  .btn-line:hover{ background:var(--paper-dim); }
+  input,select{
+    background:var(--paper-raised); border:1px solid var(--line); color:var(--ink);
+    border-radius:7px; padding:.4rem .6rem; font-size:.875rem;
+  }
+  input:focus,select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+  .tab{ cursor:pointer; padding:.5rem .9rem; border-bottom:2px solid transparent; color:var(--ink-soft); font-weight:500; }
+  .tab.active{ color:var(--ink); border-color:var(--amber); }
+  .grid-wrap{ display:grid; grid-template-columns:52px repeat(7,minmax(108px,1fr)); }
+  .block{ position:relative; border-top:1px solid var(--line); font-size:.68rem; }
+  .block.hour{ border-top:1px solid var(--line); }
+  .block.half{ border-top:1px dashed color-mix(in srgb, var(--line) 60%, transparent); }
+  .day-col{ position:relative; border-left:1px solid var(--line); }
+  .fixed-chip{ position:absolute; left:2px; right:2px; border-radius:6px; padding:2px 6px; font-size:.68rem; line-height:1.15; overflow:hidden; border:1px solid rgba(0,0,0,.08); }
+  .toast{ animation: rise .25s ease; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .nowline{ position:absolute; left:0; right:0; height:2px; background:var(--clay); z-index:5; }
+  .nowdot{ position:absolute; left:-4px; top:-3px; width:8px; height:8px; border-radius:50%; background:var(--clay); }
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-6xl mx-auto px-5 md:px-8 pt-6 pb-24">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between mb-8">
+    <div class="flex items-baseline gap-2.5">
+      <span class="serif text-[1.6rem] leading-none" style="letter-spacing:-.01em">Sổ&nbsp;Lịch</span>
+      <span class="mono text-[.68rem] px-1.5 py-0.5 rounded" style="background:var(--amber-soft); color:var(--amber)">CSP + AI</span>
+    </div>
+    <nav class="flex gap-1 text-sm">
+      <div id="tab-planner" class="tab active">Lịch của tôi</div>
+      <div id="tab-buddy" class="tab">Bạn học</div>
+    </nav>
+  </header>
+
+  <!-- ============ PLANNER VIEW ============ -->
+  <section id="view-planner">
+    <p class="max-w-xl mb-7" style="color:var(--ink-soft)">
+      Khai báo giờ cố định (lớp học, đi làm) và các môn cần tự học. Thuật toán ràng buộc (CSP) sẽ tìm chỗ trống hợp lý nhất trong tuần — tự xếp lại mỗi khi lịch của bạn thay đổi.
+    </p>
+
+    <div class="grid md:grid-cols-[320px_1fr] gap-6">
+
+      <!-- LEFT: inputs -->
+      <div class="space-y-5">
+
+        <!-- fixed activities -->
+        <div class="card p-4">
+          <h3 class="serif text-lg mb-1">Lịch cố định</h3>
+          <p class="text-xs mb-3" style="color:var(--ink-soft)">Lớp học, ca làm, việc không thể dời.</p>
+          <form id="form-fixed" class="space-y-2">
+            <input id="f-title" placeholder="Tên (VD: Lớp Giải tích)" class="w-full" required>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="f-day"></select>
+              <select id="f-color">
+                <option value="clay">Đỏ đất</option>
+                <option value="plum">Tím</option>
+                <option value="forest">Xanh lá</option>
+                <option value="amber">Vàng đồng</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="f-start" type="time" value="07:00" required>
+              <input id="f-end" type="time" value="09:00" required>
+            </div>
+            <button class="btn btn-ink w-full text-sm">Thêm vào lịch cố định</button>
+          </form>
+          <ul id="list-fixed" class="mt-3 space-y-1.5 text-sm"></ul>
+        </div>
+
+        <!-- subjects -->
+        <div class="card p-4">
+          <h3 class="serif text-lg mb-1">Môn cần tự học</h3>
+          <p class="text-xs mb-3" style="color:var(--ink-soft)">CSP sẽ tự chọn ngày &amp; giờ trong khung bạn cho phép.</p>
+          <form id="form-subject" class="space-y-2">
+            <input id="s-title" placeholder="Tên môn (VD: Tiếng Anh)" class="w-full" required>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="s-sessions">
+                <option value="2">2 buổi / tuần</option>
+                <option value="3" selected>3 buổi / tuần</option>
+                <option value="4">4 buổi / tuần</option>
+                <option value="5">5 buổi / tuần</option>
+              </select>
+              <select id="s-length">
+                <option value="60" selected>60 phút / buổi</option>
+                <option value="90">90 phút / buổi</option>
+                <option value="120">120 phút / buổi</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="s-earliest" type="time" value="06:00" title="Sớm nhất">
+              <input id="s-latest" type="time" value="22:00" title="Muộn nhất">
+            </div>
+            <select id="s-difficulty" class="w-full">
+              <option value="hard">Độ khó cao — ưu tiên buổi sáng, đầu óc tỉnh táo</option>
+              <option value="medium" selected>Độ khó vừa — linh hoạt giữa ngày</option>
+              <option value="easy">Nhẹ nhàng — xếp cuối ngày cũng ổn</option>
+            </select>
+            <button class="btn btn-ink w-full text-sm">Thêm môn học</button>
+          </form>
+          <ul id="list-subjects" class="mt-3 space-y-1.5 text-sm"></ul>
+        </div>
+
+        <button id="btn-generate" class="btn w-full text-sm" style="background:var(--amber); color:#231704">↻ Xếp lịch tự động</button>
+        <p id="gen-status" class="text-xs text-center" style="color:var(--ink-soft)"></p>
+
+        <!-- AI insight -->
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-1">
+            <h3 class="serif text-lg">Nhận xét từ AI</h3>
+            <button id="btn-ai-tip" class="btn btn-line text-xs">Hỏi AI</button>
+          </div>
+          <p class="text-xs" style="color:var(--ink-soft)">AI đọc lịch vừa xếp và góp ý cách học hiệu quả hơn, dựa trên các nguyên tắc thời khóa biểu tốt (xen kẽ môn khó/dễ, nghỉ giữa buổi, học đều trong tuần).</p>
+          <div id="ai-tip-box" class="mt-3 text-sm leading-relaxed hidden p-3 rounded" style="background:var(--paper-dim)"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: grid + now/next -->
+      <div class="space-y-4">
+
+        <div id="nownext" class="card p-4 hidden"></div>
+
+        <div class="card p-3">
+          <div class="flex items-center justify-between px-1 mb-2">
+            <h3 class="serif text-lg">Thời khóa biểu tuần</h3>
+            <button id="btn-notif" class="text-xs btn btn-line">🔔 Bật nhắc nhở</button>
+          </div>
+          <div class="scrollx">
+            <div id="grid" class="grid-wrap" style="min-width:820px"></div>
+          </div>
+          <div class="flex flex-wrap gap-3 mt-3 px-1 text-xs" id="legend"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BUDDY VIEW ============ -->
+  <section id="view-buddy" class="hidden">
+    <p class="max-w-xl mb-7" style="color:var(--ink-soft)">
+      Chia sẻ những môn bạn đang học và khung giờ rảnh để tìm người học cùng — có động lực và hỗ trợ nhau hơn khi tự học một mình.
+    </p>
+    <div class="grid md:grid-cols-[320px_1fr] gap-6">
+      <div class="card p-4">
+        <h3 class="serif text-lg mb-1">Hồ sơ học cùng</h3>
+        <p class="text-xs mb-3" style="color:var(--ink-soft)">Chỉ hiển thị cho người khác khi bạn bật chia sẻ.</p>
+        <label class="flex items-center gap-2 text-sm mb-3">
+          <input type="checkbox" id="buddy-optin" class="w-4 h-4">
+          Tham gia tìm bạn học
+        </label>
+        <div id="buddy-form" class="space-y-2 opacity-50 pointer-events-none">
+          <input id="b-subjects" placeholder="Môn học, cách nhau bởi dấu phẩy" class="w-full">
+          <input id="b-note" placeholder="Ghi chú ngắn (mục tiêu, cách liên hệ...)" class="w-full">
+          <button id="btn-buddy-save" class="btn btn-ink w-full text-sm">Lưu &amp; hiển thị hồ sơ</button>
+        </div>
+        <p id="buddy-status" class="text-xs mt-2" style="color:var(--ink-soft)"></p>
+      </div>
+      <div class="card p-4">
+        <h3 class="serif text-lg mb-3">Gợi ý bạn học phù hợp</h3>
+        <div id="buddy-matches" class="space-y-3 text-sm"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- toast host -->
+<div id="toast-host" class="fixed bottom-5 right-5 space-y-2 z-50"></div>
+
+<script>
+(function(){
+
+/* ============================= CONSTANTS ============================= */
+const DAYS = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','Chủ nhật'];
+const GRID_START = 6*60, GRID_END = 24*60, BLOCK = 30; // minutes
+const N_BLOCKS = (GRID_END-GRID_START)/BLOCK;
+const PALETTE = { clay:'--clay', plum:'--plum', forest:'--forest', amber:'--amber' };
+const SUBJECT_COLORS = ['forest','plum','amber','clay'];
+
+function timeToMin(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
+function minToTime(m){ const h=Math.floor(m/60), mm=m%60; return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function jsDayToOurDay(jsDay){ return (jsDay+6)%7; } // Sun(0)->6, Mon(1)->0
+
+/* ============================= STATE ============================= */
+let state = {
+  fixed: [],      // {id,title,day,start,end,color}
+  subjects: [],   // {id,title,sessionsPerWeek,sessionMinutes,earliest,latest,difficulty,color}
+  schedule: [],   // {id,subjectId,day,start,end}
+  unscheduled: [],
+  notifiedToday: {}, notifiedDate: null
+};
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem('soLich_state_v1');
+    if(raw){ const parsed = JSON.parse(raw); state = Object.assign(state, parsed); }
+  }catch(e){}
+}
+function saveState(){
+  try{ localStorage.setItem('soLich_state_v1', JSON.stringify(state)); }catch(e){}
+}
+
+/* ============================= TOAST ============================= */
+function toast(msg){
+  const host = document.getElementById('toast-host');
+  const el = document.createElement('div');
+  el.className = 'toast card px-4 py-2.5 text-sm shadow-lg';
+  el.textContent = msg;
+  host.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3200);
+}
+
+/* ============================= CSP SOLVER ============================= */
+function solveSchedule(subjects, fixed, opts){
+  opts = opts || {};
+  const dailyCap = opts.dailyCap || 240; // minutes of self-study per day
+  const allowSameDay = !!opts.allowSameDay;
+
+  const busy = Array.from({length:7}, ()=> new Set());
+  fixed.forEach(a=>{
+    const s = Math.max(0, Math.floor((timeToMin(a.start)-GRID_START)/BLOCK));
+    const e = Math.min(N_BLOCKS, Math.ceil((timeToMin(a.end)-GRID_START)/BLOCK));
+    for(let b=s;b<e;b++) busy[a.day].add(b);
+  });
+  const dayMinutesUsed = Array(7).fill(0);
+  const usedDaysBySubject = {};
+  const assigned = [];
+
+  let variables = [];
+  subjects.forEach(sub=>{
+    for(let i=0;i<sub.sessionsPerWeek;i++) variables.push({subjectId:sub.id, subject:sub});
+  });
+
+  function domainFor(v){
+    const sub = v.subject;
+    const lenBlocks = Math.round(sub.sessionMinutes/BLOCK);
+    const winStart = timeToMin(sub.earliest), winEnd = timeToMin(sub.latest);
+    const usedDays = usedDaysBySubject[v.subjectId] || new Set();
+    const opts_ = [];
+    for(let day=0; day<7; day++){
+      if(!allowSameDay && usedDays.has(day)) continue;
+      if(dayMinutesUsed[day] + sub.sessionMinutes > dailyCap) continue;
+      const firstBlock = Math.max(0, Math.ceil((winStart-GRID_START)/BLOCK));
+      const lastStart = Math.floor((winEnd-GRID_START)/BLOCK) - lenBlocks;
+      for(let sb=firstBlock; sb<=lastStart; sb++){
+        let free = true;
+        for(let b=sb;b<sb+lenBlocks;b++){ if(busy[day].has(b)){ free=false; break; } }
+        if(free) opts_.push({day, sb, eb:sb+lenBlocks});
+      }
+    }
+    return opts_;
+  }
+
+  function scoreOpt(o, sub){
+    const startMin = GRID_START + o.sb*BLOCK;
+    const hour = startMin/60;
+    let s = 0;
+    if(sub.difficulty==='hard') s += (22-hour)*1.4;
+    else if(sub.difficulty==='easy') s += hour*0.6;
+    else s += 12 - Math.abs(hour-15.5);
+    if(hour>=21.5) s -= 10;
+    if(dayMinutesUsed[o.day]===0) s += 4; // spread across the week
+    // small bonus for starting right after a fixed block ends (natural transition)
+    return s;
+  }
+
+  function backtrack(vars){
+    if(vars.length===0) return true;
+    let best=null, bestDom=null;
+    for(const v of vars){
+      const d = domainFor(v);
+      if(bestDom===null || d.length < bestDom.length){ best=v; bestDom=d; }
+      if(bestDom.length===0) break;
+    }
+    if(!bestDom || bestDom.length===0) return false;
+    bestDom.sort((a,b)=> scoreOpt(b,best.subject)-scoreOpt(a,best.subject));
+    const rest = vars.filter(v=>v!==best);
+    for(const o of bestDom){
+      for(let b=o.sb;b<o.eb;b++) busy[o.day].add(b);
+      dayMinutesUsed[o.day]+=best.subject.sessionMinutes;
+      usedDaysBySubject[best.subjectId] = usedDaysBySubject[best.subjectId]||new Set();
+      usedDaysBySubject[best.subjectId].add(o.day);
+      assigned.push({id:uid(), subjectId:best.subjectId, day:o.day, start:minToTime(GRID_START+o.sb*BLOCK), end:minToTime(GRID_START+o.eb*BLOCK)});
+      if(backtrack(rest)) return true;
+      assigned.pop();
+      usedDaysBySubject[best.subjectId].delete(o.day);
+      dayMinutesUsed[o.day]-=best.subject.sessionMinutes;
+      for(let b=o.sb;b<o.eb;b++) busy[o.day].delete(b);
+    }
+    return false;
+  }
+
+  let ok = backtrack(variables);
+  if(ok) return {success:true, schedule:assigned, unscheduled:[]};
+
+  // fallback: allow repeated days on same subject
+  assigned.length = 0; dayMinutesUsed.fill(0); Object.keys(usedDaysBySubject).forEach(k=>delete usedDaysBySubject[k]);
+  for(let day=0; day<7; day++) busy[day] = new Set();
+  fixed.forEach(a=>{
+    const s = Math.max(0, Math.floor((timeToMin(a.start)-GRID_START)/BLOCK));
+    const e = Math.min(N_BLOCKS, Math.ceil((timeToMin(a.end)-GRID_START)/BLOCK));
+    for(let b=s;b<e;b++) busy[a.day].add(b);
+  });
+  ok = backtrack(variables.slice());
+  if(ok) return {success:true, schedule:assigned, unscheduled:[], relaxed:true};
+
+  // final fallback: greedy best-effort, report what couldn't fit
+  assigned.length = 0; dayMinutesUsed.fill(0); Object.keys(usedDaysBySubject).forEach(k=>delete usedDaysBySubject[k]);
+  for(let day=0; day<7; day++) busy[day] = new Set();
+  fixed.forEach(a=>{
+    const s = Math.max(0, Math.floor((timeToMin(a.start)-GRID_START)/BLOCK));
+    const e = Math.min(N_BLOCKS, Math.ceil((timeToMin(a.end)-GRID_START)/BLOCK));
+    for(let b=s;b<e;b++) busy[a.day].add(b);
+  });
+  const unscheduled = [];
+  variables.forEach(v=>{
+    const dom = domainFor(v);
+    if(dom.length===0){ unscheduled.push(v.subject.title); return; }
+    dom.sort((a,b)=> scoreOpt(b,v.subject)-scoreOpt(a,v.subject));
+    const o = dom[0];
+    for(let b=o.sb;b<o.eb;b++) busy[o.day].add(b);
+    dayMinutesUsed[o.day]+=v.subject.sessionMinutes;
+    usedDaysBySubject[v.subjectId]=usedDaysBySubject[v.subjectId]||new Set();
+    usedDaysBySubject[v.subjectId].add(o.day);
+    assigned.push({id:uid(), subjectId:v.subjectId, day:o.day, start:minToTime(GRID_START+o.sb*BLOCK), end:minToTime(GRID_START+o.eb*BLOCK)});
+  });
+  return {success:unscheduled.length===0, schedule:assigned, unscheduled};
+}
+
+function regenerate(silent){
+  if(state.subjects.length===0){ state.schedule=[]; state.unscheduled=[]; saveState(); renderGrid(); return; }
+  const res = solveSchedule(state.subjects, state.fixed, {});
+  state.schedule = res.schedule;
+  state.unscheduled = res.unscheduled;
+  saveState();
+  renderGrid();
+  if(!silent){
+    const status = document.getElementById('gen-status');
+    if(res.unscheduled && res.unscheduled.length){
+      status.textContent = 'Không đủ chỗ trống cho: ' + res.unscheduled.join(', ') + ' — thử nới khung giờ.';
+      status.style.color = 'var(--clay)';
+    } else {
+      status.textContent = res.relaxed ? 'Đã xếp xong (một vài môn phải học 2 buổi cùng ngày).' : 'Đã xếp lịch hợp lý cho cả tuần.';
+      status.style.color = 'var(--forest)';
+    }
+    toast('Đã tự động sắp xếp lại lịch');
+  }
+}
+
+/* ============================= RENDER ============================= */
+function subjectColor(subjectId){
+  const idx = state.subjects.findIndex(s=>s.id===subjectId);
+  return SUBJECT_COLORS[idx % SUBJECT_COLORS.length] || 'forest';
+}
+
+function initGridSkeleton(){
+  const g = document.getElementById('grid');
+  g.innerHTML = '';
+  // header row
+  const corner = document.createElement('div'); g.appendChild(corner);
+  DAYS.forEach(d=>{
+    const h = document.createElement('div');
+    h.className = 'text-center text-xs font-medium pb-2';
+    h.style.color = 'var(--ink-soft)';
+    h.textContent = d;
+    g.appendChild(h);
+  });
+  // hour labels + day columns
+  const hours = [];
+  for(let m=GRID_START;m<GRID_END;m+=60) hours.push(m);
+  hours.forEach((m)=>{
+    const label = document.createElement('div');
+    label.className = 'mono text-[.65rem] pr-1 text-right -translate-y-2';
+    label.style.color = 'var(--ink-soft)';
+    label.textContent = minToTime(m);
+    g.appendChild(label);
+    for(let d=0; d<7; d++){
+      const cell = document.createElement('div');
+      cell.className = 'block hour';
+      cell.style.height = '48px';
+      if(d===0){ cell.id = 'row-'+m; }
+      g.appendChild(cell);
+    }
+  });
+  // overlay day columns for absolute-positioned chips
+  const totalHeight = hours.length*48;
+  for(let d=0; d<7; d++){
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    col.id = 'daycol-'+d;
+    col.style.gridColumn = String(d+2);
+    col.style.gridRow = '2 / span ' + hours.length;
+    col.style.height = totalHeight+'px';
+    col.style.marginTop = (-totalHeight)+'px';
+    g.appendChild(col);
+  }
+}
+
+function pxFromTime(t){
+  const m = timeToMin(t) - GRID_START;
+  return (m/60)*48;
+}
+
+function chip(container, item, colorKey, title, sub){
+  const el = document.createElement('div');
+  el.className = 'fixed-chip';
+  el.style.top = pxFromTime(item.start)+'px';
+  el.style.height = Math.max(18, pxFromTime(item.end)-pxFromTime(item.start))+'px';
+  el.style.background = `var(--${colorKey}-soft)`;
+  el.style.color = `var(--${colorKey})`;
+  el.innerHTML = `<div class="font-medium">${title}</div>${sub?`<div class="opacity-75">${sub}</div>`:''}`;
+  container.appendChild(el);
+}
+
+function renderGrid(){
+  initGridSkeleton();
+  state.fixed.forEach(a=>{
+    const col = document.getElementById('daycol-'+a.day);
+    chip(col, a, a.color, a.title, a.start+'–'+a.end);
+  });
+  state.schedule.forEach(s=>{
+    const sub = state.subjects.find(x=>x.id===s.subjectId);
+    if(!sub) return;
+    const col = document.getElementById('daycol-'+s.day);
+    chip(col, s, subjectColor(s.subjectId), sub.title, s.start+'–'+s.end);
+  });
+  drawNowLine();
+  renderLegend();
+  renderLists();
+}
+
+function drawNowLine(){
+  const now = new Date();
+  const ourDay = jsDayToOurDay(now.getDay());
+  const mins = now.getHours()*60+now.getMinutes();
+  if(mins < GRID_START || mins > GRID_END) return;
+  const col = document.getElementById('daycol-'+ourDay);
+  if(!col) return;
+  const line = document.createElement('div');
+  line.className = 'nowline';
+  line.style.top = ((mins-GRID_START)/60*48)+'px';
+  line.innerHTML = '<div class="nowdot"></div>';
+  col.appendChild(line);
+}
+
+function renderLegend(){
+  const el = document.getElementById('legend');
+  el.innerHTML = '';
+  state.subjects.forEach(s=>{
+    const c = subjectColor(s.id);
+    const tag = document.createElement('span');
+    tag.className = 'flex items-center gap-1.5';
+    tag.innerHTML = `<span style="width:9px;height:9px;border-radius:50%;background:var(--${c})"></span>${s.title}`;
+    el.appendChild(tag);
+  });
+  state.fixed.forEach(a=>{
+    const tag = document.createElement('span');
+    tag.className = 'flex items-center gap-1.5';
+    tag.innerHTML = `<span style="width:9px;height:9px;border-radius:2px;background:var(--${a.color})"></span>${a.title}`;
+    el.appendChild(tag);
+  });
+}
+
+function renderLists(){
+  const lf = document.getElementById('list-fixed');
+  lf.innerHTML = '';
+  state.fixed.forEach(a=>{
+    const li = document.createElement('li');
+    li.className = 'flex items-center justify-between gap-2';
+    li.innerHTML = `<span>${DAYS[a.day]} · ${a.title} <span class="mono text-xs" style="color:var(--ink-soft)">${a.start}-${a.end}</span></span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕'; btn.className='text-xs opacity-60 hover:opacity-100';
+    btn.onclick = ()=>{ state.fixed = state.fixed.filter(x=>x.id!==a.id); saveState(); regenerate(true); renderLists(); };
+    li.appendChild(btn);
+    lf.appendChild(li);
+  });
+
+  const ls = document.getElementById('list-subjects');
+  ls.innerHTML = '';
+  state.subjects.forEach(s=>{
+    const li = document.createElement('li');
+    li.className = 'flex items-center justify-between gap-2';
+    li.innerHTML = `<span>${s.title} <span class="mono text-xs" style="color:var(--ink-soft)">${s.sessionsPerWeek}×${s.sessionMinutes}′</span></span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕'; btn.className='text-xs opacity-60 hover:opacity-100';
+    btn.onclick = ()=>{ state.subjects = state.subjects.filter(x=>x.id!==s.id); saveState(); regenerate(true); renderLists(); };
+    li.appendChild(btn);
+    ls.appendChild(li);
+  });
+}
+
+/* ============================= NOW / NEXT + NOTIFICATIONS ============================= */
+function allEventsToday(){
+  const now = new Date();
+  const ourDay = jsDayToOurDay(now.getDay());
+  const items = [];
+  state.fixed.filter(a=>a.day===ourDay).forEach(a=> items.push({title:a.title, start:a.start, end:a.end, kind:'Cố định'}));
+  state.schedule.filter(s=>s.day===ourDay).forEach(s=>{
+    const sub = state.subjects.find(x=>x.id===s.subjectId);
+    items.push({title: sub? sub.title:'Học', start:s.start, end:s.end, kind:'Tự học'});
+  });
+  items.sort((a,b)=> timeToMin(a.start)-timeToMin(b.start));
+  return items;
+}
+
+function updateNowNext(){
+  const box = document.getElementById('nownext');
+  const items = allEventsToday();
+  const nowMin = new Date().getHours()*60+new Date().getMinutes();
+  const current = items.find(i=> timeToMin(i.start)<=nowMin && nowMin<timeToMin(i.end));
+  const next = items.find(i=> timeToMin(i.start)>nowMin);
+  if(!current && !next){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = '';
+  if(current){
+    const d = document.createElement('div');
+    d.className = 'flex items-center justify-between mb-2';
+    d.innerHTML = `<div><span class="text-xs mono" style="color:var(--forest)">ĐANG DIỄN RA</span><div class="serif text-lg">${current.title}</div><div class="text-xs" style="color:var(--ink-soft)">${current.start}–${current.end}</div></div>`;
+    box.appendChild(d);
+  }
+  if(next){
+    const d = document.createElement('div');
+    d.className = 'flex items-center justify-between';
+    d.innerHTML = `<div><span class="text-xs mono" style="color:var(--amber)">TIẾP THEO</span><div class="text-base">${next.title}</div><div class="text-xs" style="color:var(--ink-soft)">${next.start}–${next.end}</div></div>`;
+    const btn = document.createElement('button');
+    btn.className='btn btn-line text-xs'; btn.textContent='Chuyển sang nhiệm vụ tiếp theo';
+    btn.onclick = ()=> toast('Sẵn sàng cho: '+next.title);
+    d.appendChild(btn);
+    box.appendChild(d);
+  }
+}
+
+function checkNotifications(){
+  const today = new Date().toDateString();
+  if(state.notifiedDate !== today){ state.notifiedDate = today; state.notifiedToday = {}; }
+  const items = allEventsToday();
+  const nowMin = new Date().getHours()*60+new Date().getMinutes();
+  items.forEach(i=>{
+    const startMin = timeToMin(i.start);
+    const key = i.title+i.start;
+    if(!state.notifiedToday[key] && startMin-nowMin<=5 && startMin-nowMin>=0){
+      state.notifiedToday[key] = true;
+      saveState();
+      toast('Sắp tới: ' + i.title + ' lúc ' + i.start);
+      if(window.Notification && Notification.permission==='granted'){
+        new Notification('Sổ Lịch', {body: i.title+' bắt đầu lúc '+i.start});
+      }
+    }
+  });
+  updateNowNext();
+  renderGrid();
+}
+
+document.getElementById('btn-notif').onclick = async ()=>{
+  if(!window.Notification){ toast('Trình duyệt không hỗ trợ thông báo.'); return; }
+  const p = await Notification.requestPermission();
+  toast(p==='granted' ? 'Đã bật nhắc nhở.' : 'Bạn chưa cho phép thông báo.');
+};
+
+setInterval(checkNotifications, 20000);
+
+/* ============================= FORMS ============================= */
+const daySel = document.getElementById('f-day');
+DAYS.forEach((d,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=d; daySel.appendChild(o); });
+
+document.getElementById('form-fixed').onsubmit = (e)=>{
+  e.preventDefault();
+  const start = document.getElementById('f-start').value, end = document.getElementById('f-end').value;
+  if(timeToMin(end)<=timeToMin(start)){ toast('Giờ kết thúc phải sau giờ bắt đầu.'); return; }
+  state.fixed.push({
+    id: uid(),
+    title: document.getElementById('f-title').value.trim() || 'Hoạt động',
+    day: Number(daySel.value),
+    start, end,
+    color: document.getElementById('f-color').value
+  });
+  saveState();
+  e.target.reset(); daySel.value = 0;
+  regenerate(true);
+  toast('Đã thêm lịch cố định, tự xếp lại lịch học.');
+};
+
+document.getElementById('form-subject').onsubmit = (e)=>{
+  e.preventDefault();
+  const earliest = document.getElementById('s-earliest').value, latest = document.getElementById('s-latest').value;
+  if(timeToMin(latest)<=timeToMin(earliest)){ toast('Khung giờ không hợp lệ.'); return; }
+  state.subjects.push({
+    id: uid(),
+    title: document.getElementById('s-title').value.trim() || 'Môn học',
+    sessionsPerWeek: Number(document.getElementById('s-sessions').value),
+    sessionMinutes: Number(document.getElementById('s-length').value),
+    earliest, latest,
+    difficulty: document.getElementById('s-difficulty').value
+  });
+  saveState();
+  e.target.reset();
+  document.getElementById('s-earliest').value='06:00'; document.getElementById('s-latest').value='22:00';
+  regenerate(false);
+};
+
+document.getElementById('btn-generate').onclick = ()=> regenerate(false);
+
+/* ============================= AI TIP (sample capability) ============================= */
+document.getElementById('btn-ai-tip').onclick = async ()=>{
+  const box = document.getElementById('ai-tip-box');
+  box.classList.remove('hidden');
+  box.textContent = 'Đang phân tích lịch của bạn…';
+  const summary = {
+    coDinh: state.fixed.map(a=>`${DAYS[a.day]} ${a.start}-${a.end} ${a.title}`),
+    monTuHoc: state.subjects.map(s=>`${s.title} (${s.sessionsPerWeek} buổi/tuần, ${s.sessionMinutes} phút, độ khó ${s.difficulty}, khung ${s.earliest}-${s.latest})`),
+    lichDaXep: state.schedule.map(s=>{ const sub=state.subjects.find(x=>x.id===s.subjectId); return `${DAYS[s.day]} ${s.start}-${s.end} ${sub?sub.title:''}`; }),
+    khongXepDuoc: state.unscheduled
+  };
+  try{
+    const sample = await claude.use('sample');
+    if(!sample) throw new Error('unavailable');
+    const prompt = `Bạn là trợ lý học tập. Dưới đây là thời khóa biểu một tuần của một người (JSON), gồm lịch cố định và lịch tự học do thuật toán xếp. Hãy viết một đoạn nhận xét ngắn (4-6 câu, tiếng Việt, giọng thân thiện, cụ thể) về việc lịch này đã hợp lý chưa, có nên đổi gì không (ví dụ xen kẽ môn khó/dễ, thời gian nghỉ, học dồn quá nhiều trong một ngày), không lặp lại nguyên văn dữ liệu. Dữ liệu: ${JSON.stringify(summary)}`;
+    const res = await sample(prompt, { modelTier:'quick' });
+    box.textContent = res.text || 'Không nhận được phản hồi.';
+  }catch(err){
+    // graceful rule-based fallback
+    const byDay = Array(7).fill(0);
+    state.schedule.forEach(s=> byDay[s.day]+= (timeToMin(s.end)-timeToMin(s.start)));
+    const maxDay = byDay.indexOf(Math.max(...byDay));
+    const minDay = byDay.reduce((mi,v,i,a)=> v<a[mi]&&v>0?i:mi, byDay.findIndex(v=>v>0));
+    let msg = 'Lịch của bạn trải khá đều trong tuần. ';
+    if(Math.max(...byDay) > 0){
+      msg += `${DAYS[maxDay]} đang là ngày học nặng nhất (${(byDay[maxDay]/60).toFixed(1)} giờ) — cân nhắc chuyển bớt một buổi sang ngày nhẹ hơn để tránh mệt. `;
+    }
+    msg += 'Nên xếp môn khó vào đầu buổi sáng khi còn tỉnh táo, và để tối thiểu 15–30 phút nghỉ giữa hai buổi liền kề. Nếu một môn bị báo "không đủ chỗ", hãy nới khung giờ cho phép hoặc giảm số buổi/tuần.';
+    box.textContent = msg + ' (Chưa kết nối được AI trực tuyến — đây là gợi ý dựa trên quy tắc.)';
+  }
+};
+
+/* ============================= STUDY BUDDY ============================= */
+let dbNS=null, userNS=null, myId=null;
+
+async function initCapabilities(){
+  try{ dbNS = await claude.use('db'); }catch(e){ dbNS=null; }
+  try{ userNS = await claude.use('user'); }catch(e){ userNS=null; }
+  if(userNS){ try{ myId = userNS.id ? userNS.id() : null; }catch(e){ myId=null; } }
+  wireBuddyUI();
+}
+
+function wireBuddyUI(){
+  const optin = document.getElementById('buddy-optin');
+  const form = document.getElementById('buddy-form');
+  const status = document.getElementById('buddy-status');
+  if(!dbNS || !userNS){
+    status.textContent = 'Tính năng ghép bạn học cần mở trang này trong Claude (đăng nhập tổ chức). Dưới đây là ví dụ minh hoạ.';
+    renderDemoMatches();
+    return;
+  }
+  optin.onchange = ()=>{ form.classList.toggle('opacity-50', !optin.checked); form.classList.toggle('pointer-events-none', !optin.checked); };
+
+  document.getElementById('btn-buddy-save').onclick = async ()=>{
+    const subjects = document.getElementById('b-subjects').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const note = document.getElementById('b-note').value.trim();
+    if(subjects.length===0){ toast('Nhập ít nhất một môn học.'); return; }
+    try{
+      const canWrite = userNS.can ? await userNS.can('data.write') : true;
+      if(canWrite===false){ status.textContent='Bạn không có quyền ghi dữ liệu chia sẻ ở đây.'; return; }
+      await dbNS.doc('study_pool/'+myId).set({ subjects, note, updatedAt: Date.now() });
+      status.textContent = 'Đã lưu hồ sơ — mọi người trong tổ chức có thể thấy bạn.';
+      loadMatches();
+    }catch(err){
+      status.textContent = 'Không lưu được hồ sơ lúc này.';
+    }
+  };
+  loadMatches();
+}
+
+async function loadMatches(){
+  const host = document.getElementById('buddy-matches');
+  if(!dbNS){ renderDemoMatches(); return; }
+  host.innerHTML = '<p class="text-xs" style="color:var(--ink-soft)">Đang tìm…</p>';
+  try{
+    const col = dbNS.collection('study_pool');
+    const snap = await (col.get ? col.get() : col.where ? col.limit(50).get() : null);
+    const docs = (snap && snap.docs) ? snap.docs : (Array.isArray(snap) ? snap : []);
+    const mySubjects = new Set(state.subjects.map(s=>s.title.toLowerCase()));
+    const results = [];
+    docs.forEach(d=>{
+      const data = d.data ? d.data() : d.data;
+      const id = d.id || (d.ref && d.ref.id);
+      if(!data || id===myId) return;
+      const theirSubjects = (data.subjects||[]).map(s=>String(s).toLowerCase());
+      const overlap = theirSubjects.filter(s=> mySubjects.has(s));
+      if(overlap.length>0 || mySubjects.size===0){
+        results.push({ id, subjects:data.subjects||[], note:data.note||'', overlap });
+      }
+    });
+    results.sort((a,b)=> b.overlap.length - a.overlap.length);
+    renderMatches(results);
+  }catch(err){
+    host.innerHTML = '<p class="text-xs" style="color:var(--ink-soft)">Chưa có ai trong danh sách, hoặc không tải được. Hãy là người đầu tiên lưu hồ sơ!</p>';
+  }
+}
+
+function renderMatches(results){
+  const host = document.getElementById('buddy-matches');
+  host.innerHTML = '';
+  if(results.length===0){ host.innerHTML = '<p class="text-xs" style="color:var(--ink-soft)">Chưa có ai khớp — hãy quay lại sau khi thêm người dùng khác.</p>'; return; }
+  results.forEach(r=>{
+    const el = document.createElement('div');
+    el.className = 'card p-3';
+    el.innerHTML = `<div class="flex items-center justify-between">
+        <div>
+          <div class="font-medium">${r.overlap.length>0 ? 'Trùng '+r.overlap.length+' môn' : 'Người học khác'}</div>
+          <div class="text-xs mt-0.5" style="color:var(--ink-soft)">${(r.subjects||[]).join(', ')}</div>
+          ${r.note?`<div class="text-xs mt-1">${r.note}</div>`:''}
+        </div>
+      </div>`;
+    host.appendChild(el);
+  });
+}
+
+function renderDemoMatches(){
+  const demo = [
+    {name:'Minh', subjects:['Giải tích','Tiếng Anh'], note:'Học buổi tối, ưu tiên nhóm nhỏ.'},
+    {name:'Lan', subjects:['Tiếng Anh','Xác suất'], note:'Rảnh cuối tuần.'}
+  ];
+  const host = document.getElementById('buddy-matches');
+  host.innerHTML = '<p class="text-xs mb-2" style="color:var(--ink-soft)">Dữ liệu minh hoạ:</p>';
+  demo.forEach(r=>{
+    const el = document.createElement('div');
+    el.className = 'card p-3';
+    el.innerHTML = `<div class="font-medium">${r.name}</div><div class="text-xs mt-0.5" style="color:var(--ink-soft)">${r.subjects.join(', ')}</div><div class="text-xs mt-1">${r.note}</div>`;
+    host.appendChild(el);
+  });
+}
+
+/* ============================= TABS ============================= */
+document.getElementById('tab-planner').onclick = ()=>{
+  document.getElementById('tab-planner').classList.add('active');
+  document.getElementById('tab-buddy').classList.remove('active');
+  document.getElementById('view-planner').classList.remove('hidden');
+  document.getElementById('view-buddy').classList.add('hidden');
+};
+document.getElementById('tab-buddy').onclick = ()=>{
+  document.getElementById('tab-buddy').classList.add('active');
+  document.getElementById('tab-planner').classList.remove('active');
+  document.getElementById('view-buddy').classList.remove('hidden');
+  document.getElementById('view-planner').classList.add('hidden');
+};
+
+/* ============================= INIT ============================= */
+loadState();
+if(state.subjects.length===0 && state.fixed.length===0){
+  // gentle starter example so the grid isn't empty on first visit
+  state.fixed.push({id:uid(), title:'Lớp Giải tích', day:0, start:'07:00', end:'09:00', color:'clay'});
+  state.fixed.push({id:uid(), title:'Đi làm thêm', day:2, start:'14:00', end:'18:00', color:'plum'});
+  state.subjects.push({id:uid(), title:'Tiếng Anh', sessionsPerWeek:3, sessionMinutes:60, earliest:'06:00', latest:'22:00', difficulty:'medium'});
+  state.subjects.push({id:uid(), title:'Xác suất thống kê', sessionsPerWeek:2, sessionMinutes:90, earliest:'06:00', latest:'20:00', difficulty:'hard'});
+  regenerate(true);
+}
+renderGrid();
+updateNowNext();
+initCapabilities();
+setInterval(updateNowNext, 30000);
+
+})();
+</script>
+</body>
+</html>
