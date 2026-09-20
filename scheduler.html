@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lịch Trình Thông Minh — CSP + AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --ink:#1B1F3B;
+  --ink-soft:#3A3F63;
+  --paper:#FAF7F0;
+  --paper-raised:#FFFFFF;
+  --line:#DAD3C2;
+  --accent:#E08423;
+  --accent-soft:#F6D9B4;
+  --accent2:#2E7D6B;
+  --accent2-soft:#CFE7DF;
+  --danger:#B5433B;
+  --danger-soft:#F3D7D3;
+  --text:#20233B;
+  --text-muted:#6B6E8A;
+  --radius-s:4px;
+  --radius-m:8px;
+  --shadow:0 1px 2px rgba(27,31,59,.08), 0 4px 14px rgba(27,31,59,.06);
+  --font-display:'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+:root:not([data-theme="light"]){
+  @media (prefers-color-scheme: dark){
+    --ink:#EDEBFB; --ink-soft:#C6C5E0;
+    --paper:#14151F; --paper-raised:#1C1E2C;
+    --line:#33354A; --text:#EDEBFB; --text-muted:#9496B5;
+    --accent-soft:#4A3316; --accent2-soft:#153A30; --danger-soft:#3E1C1C;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#EDEBFB; --ink-soft:#C6C5E0;
+  --paper:#14151F; --paper-raised:#1C1E2C;
+  --line:#33354A; --text:#EDEBFB; --text-muted:#9496B5;
+  --accent-soft:#4A3316; --accent2-soft:#153A30; --danger-soft:#3E1C1C;
+}
+:root[data-variant="ocean"]{ --accent:#1E7FB8; --accent-soft:#CDE7F5; --accent2:#0F5C5C; --accent2-soft:#CDEBE3; }
+:root[data-variant="sunset"]{ --accent:#D9542B; --accent-soft:#FBDCC8; --accent2:#B8862E; --accent2-soft:#F2E3BE; }
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--text);
+  font-family:var(--font-body);
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:28px 28px;
+  background-attachment:local;
+  min-height:100vh;
+}
+::selection{ background:var(--accent-soft); }
+a{color:var(--accent);}
+button{font-family:var(--font-body);}
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px;
+}
+@media (prefers-reduced-motion: reduce){ *{animation-duration:.001ms !important; transition-duration:.001ms !important;} }
+
+/* ============ LAYOUT ============ */
+#app{ display:flex; min-height:100vh; }
+
+.rail{
+  width:88px; flex:none;
+  background:var(--paper-raised);
+  border-right:1px solid var(--line);
+  display:flex; flex-direction:column; align-items:center;
+  padding:20px 0; gap:4px;
+}
+.rail-brand{
+  font-family:var(--font-display); font-weight:600; font-size:26px; color:var(--accent);
+  margin-bottom:18px; line-height:1;
+}
+.rail-tab{
+  width:66px; padding:10px 4px 8px; border:none; background:none; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  color:var(--text-muted); border-radius:var(--radius-s);
+  font-size:11px; font-family:var(--font-body); font-weight:500;
+}
+.rail-tab .ic{ font-size:20px; }
+.rail-tab.active{ color:var(--ink); background:var(--accent-soft); }
+.rail-tab:hover:not(.active){ background:var(--line); color:var(--ink); }
+.rail-spacer{ flex:1; }
+.rail-theme-btn{
+  width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:var(--paper-raised);
+  cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; color:var(--ink);
+}
+
+main{ flex:1; min-width:0; padding:28px 32px 60px; max-width:1180px; }
+
+.topbar{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:22px; flex-wrap:wrap; }
+.topbar h1{ font-family:var(--font-display); font-weight:600; font-size:30px; margin:0; letter-spacing:-.01em; }
+.topbar .sub{ color:var(--text-muted); font-size:14px; margin-top:2px; }
+.stat-pills{ display:flex; gap:10px; }
+.pill{
+  background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius-m);
+  padding:8px 14px; display:flex; align-items:center; gap:8px; font-size:13px; box-shadow:var(--shadow);
+}
+.pill b{ font-family:var(--font-display); font-size:17px; font-weight:600; }
+.pill.streak b{ color:var(--danger); }
+.pill.points b{ color:var(--accent2); }
+
+.card{
+  background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius-m);
+  padding:20px 22px; box-shadow:var(--shadow); margin-bottom:20px;
+}
+.card h2{ font-family:var(--font-display); font-size:20px; font-weight:600; margin:0 0 4px; }
+.card .hint{ color:var(--text-muted); font-size:13px; margin:0 0 14px; }
+.section-row{ display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
+.section-row > .card{ flex:1; min-width:280px; }
+
+/* buttons */
+.btn{
+  border:1px solid var(--ink); background:var(--ink); color:var(--paper);
+  padding:9px 16px; border-radius:var(--radius-s); cursor:pointer; font-size:14px; font-weight:600;
+  font-family:var(--font-body);
+}
+.btn:hover{ opacity:.88; }
+.btn:disabled{ opacity:.4; cursor:not-allowed; }
+.btn.secondary{ background:transparent; color:var(--ink); }
+.btn.accent{ background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn.ghost{ background:transparent; border-color:var(--line); color:var(--text); }
+.btn.small{ padding:5px 10px; font-size:12.5px; }
+.btn.danger{ background:transparent; border-color:var(--danger); color:var(--danger); }
+
+/* forms */
+label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:4px; }
+input[type=text], input[type=number], select, textarea{
+  width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:var(--radius-s);
+  background:var(--paper); color:var(--text); font-size:14px; font-family:var(--font-body);
+}
+textarea{ resize:vertical; min-height:56px; }
+.field{ margin-bottom:12px; }
+.field-row{ display:flex; gap:10px; }
+.field-row > .field{ flex:1; }
+.radio-group{ display:flex; gap:14px; margin-bottom:12px; }
+.radio-group label{ display:flex; align-items:center; gap:6px; font-weight:500; color:var(--text); margin:0; }
+.chip-select{ display:flex; flex-wrap:wrap; gap:6px; }
+.chip-select label{ margin:0; }
+.chip-toggle{ display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border:1px solid var(--line); border-radius:20px; font-size:12.5px; cursor:pointer; color:var(--text-muted); font-weight:500; user-select:none; }
+.chip-toggle.on{ background:var(--accent-soft); border-color:var(--accent); color:var(--ink); }
+.chip-toggle input{ display:none; }
+
+/* week grid */
+.grid-wrap{ overflow-x:auto; }
+.week-grid{ display:grid; grid-template-columns:56px repeat(7,minmax(108px,1fr)); border:1px solid var(--line); border-radius:var(--radius-m); overflow:hidden; min-width:840px; }
+.gh{ background:var(--paper); border-bottom:1px solid var(--line); border-left:1px solid var(--line); padding:8px 6px; text-align:center; font-size:12px; font-weight:600; color:var(--ink-soft); position:sticky; top:0; }
+.gh:first-child{ border-left:none; }
+.gh .d-today{ color:var(--accent); }
+.gh-corner{ background:var(--paper); border-bottom:1px solid var(--line); }
+.gtime{ font-size:10.5px; color:var(--text-muted); text-align:right; padding:2px 6px 0 0; border-top:1px solid var(--line); font-family:var(--font-mono); }
+.gcell{ border-top:1px solid var(--line); border-left:1px solid var(--line); min-height:15px; position:relative; }
+.gcell:nth-child(8n+2){ border-left:none; }
+.gblock{
+  position:absolute; left:2px; right:2px; border-radius:3px; font-size:11px; padding:2px 5px; overflow:hidden;
+  color:#1a1a1a; line-height:1.25; box-shadow:0 1px 2px rgba(0,0,0,.15); cursor:default;
+}
+.gblock b{ display:block; font-weight:700; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.gblock span{ font-size:10px; opacity:.8; }
+.gblock.conflict{ outline:2px dashed var(--danger); }
+
+/* today banner */
+.banner{
+  background:var(--ink); color:var(--paper); border-radius:var(--radius-m); padding:16px 20px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px;
+}
+.banner .now-label{ font-size:11px; text-transform:none; letter-spacing:.02em; color:var(--accent-soft); font-weight:600; }
+.banner .now-title{ font-family:var(--font-display); font-size:21px; font-weight:600; margin:2px 0; }
+.banner .now-time{ font-size:13px; opacity:.8; }
+.banner .next-hint{ font-size:12.5px; opacity:.75; margin-top:2px; }
+
+/* task list */
+.task-item{ display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px dashed var(--line); border-radius:var(--radius-s); margin-bottom:8px; background:var(--paper); }
+.task-color{ width:10px; height:10px; border-radius:50%; flex:none; }
+.task-info{ flex:1; min-width:0; }
+.task-info b{ font-size:14px; }
+.task-info div{ font-size:12px; color:var(--text-muted); margin-top:1px; }
+.task-actions{ display:flex; gap:6px; }
+
+.today-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--radius-s); margin-bottom:6px; }
+.today-item.done{ opacity:.5; }
+.today-item .time{ font-family:var(--font-mono); font-size:12px; color:var(--text-muted); width:44px; flex:none; }
+.today-item .tt{ flex:1; font-size:13.5px; }
+.today-item input[type=checkbox]{ width:16px; height:16px; accent-color:var(--accent2); }
+
+/* toast */
+#toasts{ position:fixed; bottom:18px; right:18px; z-index:999; display:flex; flex-direction:column; gap:8px; }
+.toast{ background:var(--ink); color:var(--paper); padding:10px 16px; border-radius:var(--radius-s); font-size:13.5px; box-shadow:var(--shadow); max-width:320px; }
+
+/* AI */
+.ai-box{ background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-s); padding:14px 16px; font-size:13.5px; line-height:1.6; white-space:pre-wrap; min-height:60px; }
+.chat-log{ display:flex; flex-direction:column; gap:10px; margin-bottom:12px; max-height:360px; overflow-y:auto; }
+.chat-msg{ padding:9px 12px; border-radius:var(--radius-s); font-size:13.5px; line-height:1.5; max-width:88%; white-space:pre-wrap; }
+.chat-msg.user{ align-self:flex-end; background:var(--accent-soft); }
+.chat-msg.assistant{ align-self:flex-start; background:var(--paper); border:1px solid var(--line); }
+
+/* buddies */
+.buddy-card{ display:flex; gap:12px; align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:var(--radius-s); margin-bottom:10px; background:var(--paper); }
+.match-badge{ font-family:var(--font-mono); font-weight:600; font-size:13px; color:var(--accent2); flex:none; width:40px; text-align:center; }
+.tag{ display:inline-block; background:var(--accent2-soft); color:var(--ink); font-size:11.5px; padding:2px 8px; border-radius:10px; margin:0 4px 4px 0; }
+
+/* shop */
+.shop-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px; }
+.shop-item{ border:1px solid var(--line); border-radius:var(--radius-s); padding:12px; background:var(--paper); display:flex; flex-direction:column; gap:8px; }
+.shop-item .cost{ font-family:var(--font-mono); font-size:13px; color:var(--accent); font-weight:600; }
+
+.empty{ color:var(--text-muted); font-size:13.5px; padding:14px; text-align:center; border:1px dashed var(--line); border-radius:var(--radius-s); }
+.tabpanel{ display:none; }
+.tabpanel.active{ display:block; }
+.small-note{ font-size:12px; color:var(--text-muted); margin-top:6px; }
+
+@media (max-width: 760px){
+  #app{ flex-direction:column; }
+  .rail{ width:100%; flex-direction:row; padding:10px; overflow-x:auto; border-right:none; border-bottom:1px solid var(--line); }
+  .rail-brand{ display:none; }
+  .rail-spacer{ display:none; }
+  main{ padding:18px 14px 50px; }
+  .week-grid{ min-width:760px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <nav class="rail">
+    <div class="rail-brand">Lt</div>
+    <button class="rail-tab active" data-tab="dashboard"><span class="ic">&#128197;</span>Bảng chính</button>
+    <button class="rail-tab" data-tab="tasks"><span class="ic">&#128221;</span>Nhiệm vụ</button>
+    <button class="rail-tab" data-tab="ai"><span class="ic">&#10024;</span>Trợ lý AI</button>
+    <button class="rail-tab" data-tab="buddies"><span class="ic">&#129309;</span>Bạn học</button>
+    <button class="rail-tab" data-tab="gamify"><span class="ic">&#127942;</span>Thành tích</button>
+    <div class="rail-spacer"></div>
+    <button class="rail-theme-btn" id="themeToggle" title="Đổi giao diện sáng/tối">&#9788;</button>
+  </nav>
+
+  <main>
+    <!-- ===================== DASHBOARD ===================== -->
+    <section class="tabpanel active" id="tab-dashboard">
+      <div class="topbar">
+        <div>
+          <h1>Thời khóa biểu của bạn</h1>
+          <div class="sub">Sắp xếp tự động bằng thuật toán CSP, có thể gọi AI để tinh chỉnh gợi ý.</div>
+        </div>
+        <div class="stat-pills">
+          <div class="pill streak">&#128293; <b id="pillStreak">0</b> ngày</div>
+          <div class="pill points">&#129689; <b id="pillPoints">0</b> xu</div>
+        </div>
+      </div>
+
+      <div class="banner" id="banner">
+        <div>
+          <div class="now-label" id="bannerLabel">HÔM NAY CHƯA CÓ LỊCH</div>
+          <div class="now-title" id="bannerTitle">Thêm nhiệm vụ để bắt đầu</div>
+          <div class="now-time" id="bannerTime"></div>
+          <div class="next-hint" id="bannerNext"></div>
+        </div>
+        <button class="btn accent" id="bannerAction" style="display:none;">Chuyển sang nhiệm vụ tiếp theo</button>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:6px;">
+          <div>
+            <h2>Lưới tuần</h2>
+            <p class="hint">Ô có viền nét đứt màu đỏ là nhiệm vụ đang xung đột lịch.</p>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <label style="margin:0; font-size:12px;">Khung giờ</label>
+            <select id="dayStartSel"></select>
+            <span style="color:var(--text-muted)">—</span>
+            <select id="dayEndSel"></select>
+            <button class="btn accent" id="solveBtn">Xếp lịch tự động</button>
+          </div>
+        </div>
+        <div class="grid-wrap"><div class="week-grid" id="weekGrid"></div></div>
+        <div id="conflictNote" class="small-note"></div>
+      </div>
+    </section>
+
+    <!-- ===================== TASKS ===================== -->
+    <section class="tabpanel" id="tab-tasks">
+      <div class="topbar"><div><h1>Nhiệm vụ &amp; lịch cố định</h1><div class="sub">Khai báo lịch học/làm việc cố định và các việc linh hoạt cần AI/CSP tự sắp xếp.</div></div></div>
+
+      <div class="card">
+        <h2>Thêm nhanh bằng AI</h2>
+        <p class="hint">Gõ một câu tự nhiên, AI sẽ tự tách thành nhiệm vụ có cấu trúc để bạn xác nhận.</p>
+        <div class="field-row">
+          <div class="field" style="flex:3;"><input type="text" id="nlInput" placeholder='VD: "Học tiếng Anh 1 tiếng mỗi tối, 3 buổi 1 tuần"'></div>
+          <div class="field" style="flex:none;"><button class="btn secondary" id="nlParseBtn">Phân tích</button></div>
+        </div>
+        <div id="nlPreview"></div>
+      </div>
+
+      <div class="section-row">
+        <div class="card" style="flex:1.1;">
+          <h2 id="formTitle">Thêm nhiệm vụ</h2>
+          <div class="radio-group">
+            <label><input type="radio" name="taskType" value="fixed" checked> Lịch cố định</label>
+            <label><input type="radio" name="taskType" value="flexible"> Việc linh hoạt</label>
+          </div>
+          <div class="field"><label>Tên nhiệm vụ</label><input type="text" id="fTitle" placeholder="VD: Học Giải tích, Đi làm thêm, Tập gym…"></div>
+
+          <div id="fixedFields">
+            <div class="field"><label>Ngày trong tuần</label>
+              <select id="fDay">
+                <option value="0">Thứ 2</option><option value="1">Thứ 3</option><option value="2">Thứ 4</option>
+                <option value="3">Thứ 5</option><option value="4">Thứ 6</option><option value="5">Thứ 7</option><option value="6">Chủ nhật</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <div class="field"><label>Giờ bắt đầu</label><input type="text" id="fStart" placeholder="07:00"></div>
+              <div class="field"><label>Giờ kết thúc</label><input type="text" id="fEnd" placeholder="09:00"></div>
+            </div>
+          </div>
+
+          <div id="flexFields" style="display:none;">
+            <div class="field-row">
+              <div class="field"><label>Thời lượng mỗi buổi (phút)</label><input type="number" id="fDuration" value="60" min="15" step="15"></div>
+              <div class="field"><label>Số buổi / tuần</label><input type="number" id="fTimes" value="3" min="1" max="14"></div>
+            </div>
+            <div class="field"><label>Khung giờ ưu tiên</label>
+              <select id="fWindow">
+                <option value="any">Bất kỳ</option>
+                <option value="morning">Buổi sáng</option>
+                <option value="afternoon">Buổi chiều</option>
+                <option value="evening">Buổi tối</option>
+              </select>
+            </div>
+            <div class="field"><label>Ngày cho phép xếp</label>
+              <div class="chip-select" id="fDaysChips"></div>
+            </div>
+          </div>
+
+          <div class="field"><label>Mức ưu tiên</label>
+            <select id="fPriority"><option value="3">Cao</option><option value="2" selected>Trung bình</option><option value="1">Thấp</option></select>
+          </div>
+          <div class="field"><label>Màu</label>
+            <div class="chip-select" id="colorChips"></div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button class="btn accent" id="saveTaskBtn">Lưu nhiệm vụ</button>
+            <button class="btn ghost" id="cancelEditBtn" style="display:none;">Hủy chỉnh sửa</button>
+          </div>
+        </div>
+
+        <div class="card" style="flex:1;">
+          <h2>Danh sách nhiệm vụ</h2>
+          <div id="taskList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== AI ===================== -->
+    <section class="tabpanel" id="tab-ai">
+      <div class="topbar"><div><h1>Trợ lý AI</h1><div class="sub">Nhận gợi ý cải thiện lịch dựa trên các nguyên tắc thời khóa biểu hiệu quả.</div></div></div>
+
+      <div class="card">
+        <h2>Đánh giá &amp; gợi ý tối ưu</h2>
+        <p class="hint">AI sẽ xem xét lịch hiện tại (Pomodoro, giãn cách nghỉ, giờ vàng buổi sáng, spaced repetition…) và đề xuất cải thiện.</p>
+        <button class="btn accent" id="aiSuggestBtn">Phân tích thời khóa biểu của tôi</button>
+        <div style="margin-top:12px;" id="aiSuggestBox" class="ai-box">Nhấn nút phía trên để nhận gợi ý.</div>
+      </div>
+
+      <div class="card">
+        <h2>Hỏi đáp nhanh</h2>
+        <p class="hint">Hỏi AI bất cứ điều gì về cách quản lý thời gian, học tập hoặc thói quen của bạn.</p>
+        <div class="chat-log" id="chatLog"></div>
+        <div class="field-row">
+          <div class="field" style="flex:3;"><input type="text" id="chatInput" placeholder="VD: Làm sao để không trì hoãn khi học buổi tối?"></div>
+          <div class="field" style="flex:none;"><button class="btn secondary" id="chatSendBtn">Gửi</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== BUDDIES ===================== -->
+    <section class="tabpanel" id="tab-buddies">
+      <div class="topbar"><div><h1>Tìm bạn học</h1><div class="sub">Ghép nối với người có mục tiêu và lịch tương đồng để cùng cố gắng.</div></div></div>
+
+      <div class="section-row">
+        <div class="card" style="flex:1;">
+          <h2>Hồ sơ của bạn</h2>
+          <p class="hint">Thông tin bên dưới (trừ ghi chú riêng tư) sẽ được hiển thị công khai cho người dùng khác để tìm bạn học.</p>
+          <div class="field"><label>Biệt danh</label><input type="text" id="bName" placeholder="VD: Minh - K68"></div>
+          <div class="field"><label>Môn học / chủ đề (cách nhau bằng dấu phẩy)</label><input type="text" id="bSubjects" placeholder="VD: Giải tích, Tiếng Anh, Lập trình"></div>
+          <div class="field"><label>Mục tiêu</label><textarea id="bGoal" placeholder="VD: Ôn thi cuối kỳ Giải tích, luyện IELTS 6.5"></textarea></div>
+          <div class="field"><label>Liên hệ (Zalo/Discord/Email…)</label><input type="text" id="bContact" placeholder="VD: zalo: 09xxxxxxx"></div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn accent" id="saveBuddyBtn">Lưu &amp; công khai hồ sơ</button>
+            <button class="btn ghost" id="hideBuddyBtn">Ẩn hồ sơ</button>
+          </div>
+        </div>
+        <div class="card" style="flex:1.2;">
+          <h2>Gợi ý bạn học</h2>
+          <p class="hint">Xếp hạng theo mức độ trùng khớp môn học &amp; mục tiêu.</p>
+          <button class="btn secondary" id="findBuddyBtn" style="margin-bottom:12px;">Tìm bạn học phù hợp</button>
+          <div id="buddyList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== GAMIFY ===================== -->
+    <section class="tabpanel" id="tab-gamify">
+      <div class="topbar"><div><h1>Thành tích &amp; động lực</h1><div class="sub">Duy trì chuỗi ngày, tích xu và đổi phần thưởng hỗ trợ quản lý lịch.</div></div></div>
+
+      <div class="section-row">
+        <div class="card" style="flex:1;">
+          <h2>Điểm danh hôm nay</h2>
+          <p class="hint">Điểm danh mỗi ngày để giữ chuỗi &#128293; và nhận xu.</p>
+          <div style="font-family:var(--font-display); font-size:38px; font-weight:600;"><span id="streakBig">0</span> <span style="font-size:16px; color:var(--text-muted); font-family:var(--font-body);">ngày liên tiếp</span></div>
+          <button class="btn accent" id="checkinBtn" style="margin-top:10px;">Điểm danh (+10 xu)</button>
+        </div>
+        <div class="card" style="flex:1;">
+          <h2>Nhiệm vụ hôm nay</h2>
+          <p class="hint">Đánh dấu hoàn thành để nhận +5 xu mỗi việc.</p>
+          <div id="gamifyTaskList"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Cửa hàng xu</h2>
+        <p class="hint">Dùng xu để mua lượt nhắc đặc biệt hoặc đổi giao diện.</p>
+        <div class="shop-grid" id="shopGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Túi đồ của bạn</h2>
+        <div id="inventoryList"></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toasts"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const SLOT = 30; // phút mỗi ô lưới
+const DAY_NAMES = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','Chủ nhật'];
+const DAY_SHORT = ['T2','T3','T4','T5','T6','T7','CN'];
+const COLORS = ['#E08423','#2E7D6B','#3E6FB0','#B5433B','#8A5CC7','#C48A2E','#4A8C6B'];
+const SHOP = [
+  {id:'reminder_boost', name:'Vé nhắc sớm x5', cost:50, type:'consumable', desc:'5 lần được nhắc trước 15 phút thay vì 5 phút.'},
+  {id:'streak_freeze', name:'Đóng băng chuỗi', cost:60, type:'consumable', desc:'Bỏ lỡ 1 ngày mà không bị mất chuỗi streak.'},
+  {id:'theme_ocean', name:'Giao diện Đại Dương', cost:80, type:'theme', desc:'Đổi tông màu xanh biển cho toàn bộ ứng dụng.'},
+  {id:'theme_sunset', name:'Giao diện Hoàng Hôn', cost:80, type:'theme', desc:'Đổi tông màu cam ấm cho toàn bộ ứng dụng.'},
+];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let uid = null;
+let dbNs = null, sampleNs = null, userNs = null;
+let dbAvailable = false, aiAvailable = false;
+let saveTimer = null;
+let docVersionKnown = false;
+
+let state = {
+  tasks: [],
+  settings: {dayStartMin: 360, dayEndMin: 1380},
+  points: 0,
+  streak: 0,
+  lastCheckin: null,
+  inventory: [],
+  completedLog: {},
+  themeVariant: 'default',
+  profile: {name:'', subjects:'', goal:'', contact:''},
+  profilePublic: false,
+};
+const notifiedSet = new Set(); // trong phiên làm việc, không lưu trữ
+let editingTaskId = null;
+let notifPermissionAsked = false;
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+function uuid(){ return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtTime(min){ min=((min%1440)+1440)%1440; return pad2(Math.floor(min/60))+':'+pad2(min%60); }
+function parseTime(str){
+  const m = /^(\d{1,2}):(\d{2})$/.exec((str||'').trim());
+  if(!m) return null;
+  const h=+m[1], mi=+m[2];
+  if(h<0||h>28||mi<0||mi>59) return null;
+  return h*60+mi;
+}
+function todayIndex(){ return (new Date().getDay()+6)%7; }
+function todayKey(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function dateKeyOffset(offsetDays){ const d=new Date(); d.setDate(d.getDate()+offsetDays); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function toast(msg){
+  const box=document.createElement('div'); box.className='toast'; box.textContent=msg;
+  document.getElementById('toasts').appendChild(box);
+  setTimeout(()=>{ box.style.transition='opacity .4s'; box.style.opacity='0'; setTimeout(()=>box.remove(),400); }, 3600);
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ============================================================
+   CSP SOLVER
+   ============================================================ */
+function slotsPerDay(settings){ return Math.round((settings.dayEndMin - settings.dayStartMin) / SLOT); }
+function minToSlot(min, settings){ return Math.round((min - settings.dayStartMin) / SLOT); }
+
+function windowRange(pref, settings){
+  const bounds = [settings.dayStartMin, settings.dayEndMin];
+  let r;
+  if(pref==='morning') r=[360,720];
+  else if(pref==='afternoon') r=[720,1080];
+  else if(pref==='evening') r=[1080,1380];
+  else r=[settings.dayStartMin, settings.dayEndMin];
+  return [Math.max(r[0],bounds[0]), Math.min(r[1],bounds[1])];
+}
+
+function solveSchedule(tasks, settings){
+  const spd = slotsPerDay(settings);
+  const grid = Array.from({length:7}, ()=> new Array(spd).fill(null));
+  const conflicts = [];
+
+  const fixed = tasks.filter(t=>t.type==='fixed');
+  for(const t of fixed){
+    if(t.startMin==null || t.endMin==null || t.endMin<=t.startMin || t.day==null){
+      conflicts.push({taskId:t.id, title:t.title, reason:'Thời gian không hợp lệ'}); continue;
+    }
+    const s=minToSlot(t.startMin,settings), e=minToSlot(t.endMin,settings);
+    const cs=Math.max(0,s), ce=Math.min(spd,e);
+    let overlap=false;
+    for(let i=cs;i<ce;i++){ if(grid[t.day][i]){ overlap=true; } }
+    if(overlap) conflicts.push({taskId:t.id, title:t.title, reason:'Trùng với lịch cố định khác'});
+    for(let i=cs;i<ce;i++){ grid[t.day][i] = {taskId:t.id, fixed:true}; }
+  }
+
+  const flexible = tasks.filter(t=>t.type==='flexible');
+  flexible.sort((a,b)=> (b.priority-a.priority) || ((b.timesPerWeek*b.durationMin) - (a.timesPerWeek*a.durationMin)) );
+
+  for(const t of flexible){
+    t.assignments = [];
+    const durSlots = Math.max(1, Math.ceil(t.durationMin / SLOT));
+    const allowedDays = (t.preferredDays && t.preferredDays.length) ? t.preferredDays : [0,1,2,3,4,5,6];
+    const [wStart, wEnd] = windowRange(t.preferredWindow, settings);
+
+    function usedDaysCount(day){ return t.assignments.filter(a=>a.day===day).length; }
+
+    function backtrack(occIndex){
+      if(occIndex >= t.timesPerWeek) return true;
+      let candidates = [];
+      for(const day of allowedDays){
+        for(let startMin=wStart; startMin+t.durationMin<=wEnd; startMin+=SLOT){
+          const startSlot = minToSlot(startMin, settings);
+          if(startSlot<0 || startSlot+durSlots>spd) continue;
+          let free=true;
+          for(let i=startSlot;i<startSlot+durSlots;i++){ if(grid[day][i]){ free=false; break; } }
+          if(!free) continue;
+          candidates.push({day, startSlot, startMin});
+        }
+      }
+      candidates.sort((a,b)=> usedDaysCount(a.day) - usedDaysCount(b.day));
+      for(const c of candidates){
+        for(let i=c.startSlot;i<c.startSlot+durSlots;i++) grid[c.day][i] = {taskId:t.id, occ:occIndex};
+        t.assignments.push({day:c.day, startMin:c.startMin, endMin:c.startMin+t.durationMin});
+        if(backtrack(occIndex+1)) return true;
+        for(let i=c.startSlot;i<c.startSlot+durSlots;i++) grid[c.day][i] = null;
+        t.assignments.pop();
+      }
+      return false;
+    }
+
+    const ok = backtrack(0);
+    if(!ok){
+      conflicts.push({taskId:t.id, title:t.title, reason:'Không đủ chỗ trống để xếp hết ' + t.timesPerWeek + ' buổi/tuần (đã xếp được ' + t.assignments.length + ')'});
+    }
+  }
+
+  return {grid, conflicts};
+}
+
+let lastSolveResult = {grid:null, conflicts:[]};
+function resolveSchedule(){
+  lastSolveResult = solveSchedule(state.tasks, state.settings);
+  return lastSolveResult;
+}
+
+/* today items derived from tasks + assignments */
+function getTodayItems(){
+  const di = todayIndex();
+  const items = [];
+  for(const t of state.tasks){
+    if(t.type==='fixed' && t.day===di && t.startMin!=null && t.endMin!=null){
+      items.push({id:t.id+'_f0', taskId:t.id, title:t.title, color:t.color, startMin:t.startMin, endMin:t.endMin});
+    } else if(t.type==='flexible' && Array.isArray(t.assignments)){
+      t.assignments.forEach((a,idx)=>{
+        if(a.day===di) items.push({id:t.id+'_a'+idx, taskId:t.id, title:t.title, color:t.color, startMin:a.startMin, endMin:a.endMin});
+      });
+    }
+  }
+  items.sort((a,b)=>a.startMin-b.startMin);
+  return items;
+}
+
+/* ============================================================
+   PERSISTENCE (db capability)
+   ============================================================ */
+function schedulePersist(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persistNow, 500);
+}
+async function persistNow(){
+  if(!dbAvailable || !uid) return;
+  try{
+    const ref = dbNs.doc('data/users/'+uid+'/state');
+    await ref.set(JSON.parse(JSON.stringify(state)));
+  }catch(e){ /* best effort */ }
+}
+
+async function initData(){
+  const claude = window.claude;
+  try{ dbNs = claude ? await claude.use('db') : null; }catch(e){ dbNs=null; }
+  try{ userNs = claude ? await claude.use('user') : null; }catch(e){ userNs=null; }
+  try{ sampleNs = claude ? await claude.use('sample') : null; }catch(e){ sampleNs=null; }
+  aiAvailable = !!sampleNs;
+
+  if(userNs){
+    try{ uid = await userNs.id(); }catch(e){ uid=null; }
+  }
+  dbAvailable = !!(dbNs && uid);
+
+  if(dbAvailable){
+    try{
+      const snap = await dbNs.doc('data/users/'+uid+'/state').get();
+      if(snap.exists){
+        const d = snap.data();
+        state = Object.assign({}, state, d);
+        state.tasks = Array.isArray(d.tasks) ? d.tasks : [];
+        state.settings = d.settings || state.settings;
+        state.inventory = Array.isArray(d.inventory) ? d.inventory : [];
+        state.completedLog = d.completedLog || {};
+        state.profile = d.profile || state.profile;
+      }
+    }catch(e){ /* start fresh */ }
+  } else {
+    toast('Không thể đăng nhập danh tính — dữ liệu sẽ chỉ lưu tạm trong phiên này.');
+  }
+
+  if(!aiAvailable){
+    document.getElementById('aiSuggestBtn').disabled = true;
+    document.getElementById('chatSendBtn').disabled = true;
+    document.getElementById('nlParseBtn').disabled = true;
+  }
+
+  resolveSchedule();
+  applyTheme();
+  renderAll();
+}
+
+/* ============================================================
+   RENDER — DASHBOARD
+   ============================================================ */
+function fillHourSelects(){
+  const s=document.getElementById('dayStartSel'), e=document.getElementById('dayEndSel');
+  s.innerHTML=''; e.innerHTML='';
+  for(let h=0; h<=23; h++){
+    s.innerHTML += `<option value="${h*60}">${pad2(h)}:00</option>`;
+    e.innerHTML += `<option value="${(h+1)*60}">${pad2(h+1)}:00</option>`;
+  }
+  s.value = state.settings.dayStartMin;
+  e.value = state.settings.dayEndMin;
+}
+
+function renderWeekGrid(){
+  const {grid, conflicts} = lastSolveResult;
+  const wrap = document.getElementById('weekGrid');
+  const settings = state.settings;
+  const spd = slotsPerDay(settings);
+  const di = todayIndex();
+
+  let html = '<div class="gh-corner"></div>';
+  for(let d=0; d<7; d++) html += `<div class="gh ${d===di?'d-today':''}">${DAY_SHORT[d]}</div>`;
+  wrap.style.gridTemplateRows = `32px repeat(${spd}, 15px)`;
+
+  for(let i=0;i<spd;i++){
+    const min = settings.dayStartMin + i*SLOT;
+    html += (min % 60 === 0) ? `<div class="gtime">${pad2(Math.floor(min/60))}:00</div>` : `<div class="gtime"></div>`;
+    for(let d=0; d<7; d++) html += `<div class="gcell" data-day="${d}" data-slot="${i}"></div>`;
+  }
+  wrap.innerHTML = html;
+
+  // place blocks
+  const taskById = {}; state.tasks.forEach(t=>taskById[t.id]=t);
+  const conflictTaskIds = new Set(conflicts.map(c=>c.taskId));
+
+  function placeBlock(day, startMin, endMin, task){
+    const rowStart = 2 + Math.max(0, minToSlot(startMin, settings));
+    const rowEnd = 2 + Math.min(spd, minToSlot(endMin, settings));
+    if(rowEnd<=rowStart) return;
+    const col = day+2;
+    const cell = wrap.querySelector(`.gcell[data-day="${day}"][data-slot="0"]`);
+    const block = document.createElement('div');
+    block.className = 'gblock' + (conflictTaskIds.has(task.id) ? ' conflict' : '');
+    block.style.gridColumn = col;
+    block.style.gridRow = rowStart + ' / ' + rowEnd;
+    block.style.background = task.color;
+    block.innerHTML = `<b>${escapeHtml(task.title)}</b><span>${fmtTime(startMin)}–${fmtTime(endMin)}</span>`;
+    wrap.appendChild(block);
+  }
+  for(const t of state.tasks){
+    if(t.type==='fixed' && t.startMin!=null && t.endMin!=null){
+      placeBlock(t.day, t.startMin, t.endMin, t);
+    } else if(t.type==='flexible' && Array.isArray(t.assignments)){
+      t.assignments.forEach(a=> placeBlock(a.day, a.startMin, a.endMin, t));
+    }
+  }
+
+  const note = document.getElementById('conflictNote');
+  if(conflicts.length){
+    note.innerHTML = '&#9888; ' + conflicts.map(c=>escapeHtml(c.title)+': '+escapeHtml(c.reason)).join(' · ');
+    note.style.color = 'var(--danger)';
+  } else {
+    note.textContent = state.tasks.length ? 'Không có xung đột — tất cả nhiệm vụ đã được xếp.' : '';
+    note.style.color = 'var(--text-muted)';
+  }
+}
+
+function renderBanner(){
+  const items = getTodayItems();
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  const log = state.completedLog[todayKey()] || {};
+
+  const current = items.find(it => nowMin>=it.startMin && nowMin<it.endMin);
+  const next = items.filter(it => it.startMin>nowMin).sort((a,b)=>a.startMin-b.startMin)[0];
+
+  const label=document.getElementById('bannerLabel'), title=document.getElementById('bannerTitle'),
+        time=document.getElementById('bannerTime'), nextEl=document.getElementById('bannerNext'),
+        actionBtn=document.getElementById('bannerAction');
+
+  if(!items.length){
+    label.textContent='HÔM NAY CHƯA CÓ LỊCH';
+    title.textContent='Thêm nhiệm vụ để bắt đầu';
+    time.textContent=''; nextEl.textContent=''; actionBtn.style.display='none';
+    return;
+  }
+
+  if(current){
+    label.textContent='ĐANG DIỄN RA';
+    title.textContent=current.title;
+    time.textContent=fmtTime(current.startMin)+'–'+fmtTime(current.endMin);
+    nextEl.textContent = next ? ('Tiếp theo: '+next.title+' lúc '+fmtTime(next.startMin)) : 'Đây là việc cuối cùng hôm nay.';
+    actionBtn.style.display = log[current.id] ? 'none' : 'inline-block';
+    actionBtn.onclick = ()=>{ completeItem(current.id); };
+  } else if(next){
+    label.textContent='SẮP DIỄN RA';
+    title.textContent=next.title;
+    time.textContent='Bắt đầu lúc '+fmtTime(next.startMin);
+    nextEl.textContent='';
+    actionBtn.style.display='none';
+  } else {
+    label.textContent='ĐÃ XONG HÔM NAY';
+    title.textContent='Bạn đã hoàn thành lịch trình hôm nay 🎉';
+    time.textContent=''; nextEl.textContent=''; actionBtn.style.display='none';
+  }
+}
+
+/* ============================================================
+   RENDER — TASKS TAB
+   ============================================================ */
+function renderColorChips(){
+  const wrap=document.getElementById('colorChips'); wrap.innerHTML='';
+  COLORS.forEach((c,i)=>{
+    const id='col'+i;
+    wrap.innerHTML += `<label class="chip-toggle" style="border-color:${c}" id="wrap_${id}">
+      <input type="radio" name="colorPick" value="${c}" ${i===0?'checked':''} id="${id}">
+      <span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block;"></span></label>`;
+  });
+}
+function renderDayChips(){
+  const wrap=document.getElementById('fDaysChips'); wrap.innerHTML='';
+  DAY_SHORT.forEach((d,i)=>{
+    wrap.innerHTML += `<label class="chip-toggle on" id="daychip_${i}">
+      <input type="checkbox" value="${i}" checked>${d}</label>`;
+  });
+  wrap.querySelectorAll('.chip-toggle').forEach(el=>{
+    el.addEventListener('click', (ev)=>{
+      const cb = el.querySelector('input'); 
+      if(ev.target.tagName!=='INPUT'){ cb.checked=!cb.checked; }
+      el.classList.toggle('on', cb.checked);
+    });
+  });
+}
+
+function renderTaskList(){
+  const wrap = document.getElementById('taskList');
+  if(!state.tasks.length){ wrap.innerHTML = '<div class="empty">Chưa có nhiệm vụ nào. Thêm ở bên trái.</div>'; return; }
+  wrap.innerHTML = state.tasks.map(t=>{
+    let detail;
+    if(t.type==='fixed'){
+      detail = DAY_NAMES[t.day] + ' · ' + fmtTime(t.startMin) + '–' + fmtTime(t.endMin);
+    } else {
+      const placed = (t.assignments||[]).length;
+      detail = t.durationMin+' phút × '+t.timesPerWeek+' buổi/tuần · đã xếp '+placed+'/'+t.timesPerWeek;
+    }
+    return `<div class="task-item">
+      <div class="task-color" style="background:${t.color}"></div>
+      <div class="task-info"><b>${escapeHtml(t.title)}</b><div>${detail}</div></div>
+      <div class="task-actions">
+        <button class="btn ghost small" data-edit="${t.id}">Sửa</button>
+        <button class="btn danger small" data-del="${t.id}">Xóa</button>
+      </div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>loadTaskIntoForm(b.dataset.edit)));
+  wrap.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>deleteTask(b.dataset.del)));
+}
+
+function currentFormType(){ return document.querySelector('input[name=taskType]:checked').value; }
+function toggleFormFields(){
+  const t = currentFormType();
+  document.getElementById('fixedFields').style.display = t==='fixed' ? '' : 'none';
+  document.getElementById('flexFields').style.display = t==='flexible' ? '' : 'none';
+}
+
+function resetForm(){
+  editingTaskId = null;
+  document.getElementById('formTitle').textContent = 'Thêm nhiệm vụ';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  document.getElementById('fTitle').value = '';
+  document.querySelector('input[name=taskType][value=fixed]').checked = true;
+  document.getElementById('fDay').value = '0';
+  document.getElementById('fStart').value = '';
+  document.getElementById('fEnd').value = '';
+  document.getElementById('fDuration').value = 60;
+  document.getElementById('fTimes').value = 3;
+  document.getElementById('fWindow').value = 'any';
+  document.getElementById('fPriority').value = '2';
+  renderDayChips();
+  renderColorChips();
+  toggleFormFields();
+}
+
+function loadTaskIntoForm(id){
+  const t = state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  editingTaskId = id;
+  document.getElementById('formTitle').textContent = 'Sửa nhiệm vụ';
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  document.getElementById('fTitle').value = t.title;
+  document.querySelector(`input[name=taskType][value=${t.type}]`).checked = true;
+  if(t.type==='fixed'){
+    document.getElementById('fDay').value = t.day;
+    document.getElementById('fStart').value = fmtTime(t.startMin);
+    document.getElementById('fEnd').value = fmtTime(t.endMin);
+  } else {
+    document.getElementById('fDuration').value = t.durationMin;
+    document.getElementById('fTimes').value = t.timesPerWeek;
+    document.getElementById('fWindow').value = t.preferredWindow;
+    renderDayChips();
+    (t.preferredDays||[]).length && DAY_SHORT.forEach((_,i)=>{
+      const on = t.preferredDays.includes(i);
+      const chip = document.getElementById('daychip_'+i);
+      chip.classList.toggle('on', on);
+      chip.querySelector('input').checked = on;
+    });
+  }
+  document.getElementById('fPriority').value = t.priority;
+  renderColorChips();
+  const colInput = [...document.querySelectorAll('input[name=colorPick]')].find(el=>el.value===t.color);
+  if(colInput){ colInput.checked=true; colInput.closest('label').classList.add('on'); }
+  toggleFormFields();
+  document.querySelectorAll('.rail-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.rail-tab[data-tab=tasks]').classList.add('active');
+  switchTab('tasks');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function deleteTask(id){
+  state.tasks = state.tasks.filter(t=>t.id!==id);
+  resolveSchedule(); schedulePersist(); renderAll();
+  toast('Đã xóa nhiệm vụ.');
+}
+
+function saveTaskFromForm(){
+  const title = document.getElementById('fTitle').value.trim();
+  if(!title){ toast('Vui lòng nhập tên nhiệm vụ.'); return; }
+  const type = currentFormType();
+  const color = document.querySelector('input[name=colorPick]:checked').value;
+  const priority = +document.getElementById('fPriority').value;
+
+  let task = {id: editingTaskId || uuid(), title, type, color, priority};
+
+  if(type==='fixed'){
+    const day = +document.getElementById('fDay').value;
+    const startMin = parseTime(document.getElementById('fStart').value);
+    const endMin = parseTime(document.getElementById('fEnd').value);
+    if(startMin==null || endMin==null || endMin<=startMin){ toast('Giờ không hợp lệ (định dạng HH:MM, giờ kết thúc phải sau giờ bắt đầu).'); return; }
+    Object.assign(task, {day, startMin, endMin});
+  } else {
+    const durationMin = Math.max(15, +document.getElementById('fDuration').value || 60);
+    const timesPerWeek = Math.max(1, +document.getElementById('fTimes').value || 1);
+    const preferredWindow = document.getElementById('fWindow').value;
+    const preferredDays = [...document.querySelectorAll('#fDaysChips input:checked')].map(i=>+i.value);
+    Object.assign(task, {durationMin, timesPerWeek, preferredWindow, preferredDays, assignments:[]});
+  }
+
+  const idx = state.tasks.findIndex(t=>t.id===task.id);
+  if(idx>=0) state.tasks[idx] = task; else state.tasks.push(task);
+
+  resolveSchedule();
+  schedulePersist();
+  resetForm();
+  renderAll();
+  toast(idx>=0 ? 'Đã cập nhật nhiệm vụ — lịch tự động điều chỉnh.' : 'Đã thêm nhiệm vụ — lịch tự động điều chỉnh.');
+}
+
+/* ============================================================
+   GAMIFICATION
+   ============================================================ */
+function reminderBoostUses(){
+  const inv = state.inventory.find(i=>i.id==='reminder_boost');
+  return inv ? (inv.uses||0) : 0;
+}
+function consumeReminderBoost(){
+  const inv = state.inventory.find(i=>i.id==='reminder_boost');
+  if(inv && inv.uses>0){ inv.uses -= 1; schedulePersist(); }
+}
+function availableStreakFreeze(){
+  return state.inventory.find(i=>i.id==='streak_freeze' && !i.used);
+}
+
+function doCheckin(){
+  const tk = todayKey();
+  if(state.lastCheckin === tk){ toast('Bạn đã điểm danh hôm nay rồi!'); return; }
+  const yk = dateKeyOffset(-1);
+  if(state.lastCheckin === yk){
+    state.streak += 1;
+  } else if(state.lastCheckin){
+    const freeze = availableStreakFreeze();
+    if(freeze){ freeze.used = true; state.streak += 1; toast('Đã dùng vé đóng băng chuỗi để giữ streak!'); }
+    else { state.streak = 1; }
+  } else {
+    state.streak = 1;
+  }
+  state.lastCheckin = tk;
+  state.points += 10;
+  schedulePersist();
+  renderAll();
+  toast('Điểm danh thành công! +10 xu');
+}
+
+function completeItem(itemId){
+  const tk = todayKey();
+  state.completedLog[tk] = state.completedLog[tk] || {};
+  if(state.completedLog[tk][itemId]) return;
+  state.completedLog[tk][itemId] = true;
+  state.points += 5;
+  schedulePersist();
+  renderAll();
+  toast('Hoàn thành! +5 xu');
+}
+
+function buyShopItem(id){
+  const item = SHOP.find(s=>s.id===id);
+  if(!item) return;
+  if(item.type==='theme' && state.inventory.some(i=>i.id===id)){ toast('Bạn đã sở hữu giao diện này.'); return; }
+  if(state.points < item.cost){ toast('Không đủ xu.'); return; }
+  state.points -= item.cost;
+  if(id==='reminder_boost'){
+    const existing = state.inventory.find(i=>i.id==='reminder_boost');
+    if(existing) existing.uses = (existing.uses||0)+5; else state.inventory.push({id, uses:5});
+  } else if(id==='streak_freeze'){
+    state.inventory.push({id, used:false});
+  } else {
+    state.inventory.push({id, boughtAt: Date.now()});
+  }
+  schedulePersist();
+  renderAll();
+  toast('Đã mua: ' + item.name);
+}
+
+function selectThemeVariant(id){
+  const owned = id==='default' || state.inventory.some(i=>i.id===id);
+  if(!owned){ toast('Bạn chưa sở hữu giao diện này.'); return; }
+  state.themeVariant = id;
+  applyTheme();
+  schedulePersist();
+  renderAll();
+}
+function applyTheme(){
+  const variant = state.themeVariant==='theme_ocean' ? 'ocean' : (state.themeVariant==='theme_sunset' ? 'sunset' : '');
+  if(variant) document.documentElement.setAttribute('data-variant', variant);
+  else document.documentElement.removeAttribute('data-variant');
+}
+
+function renderGamify(){
+  document.getElementById('streakBig').textContent = state.streak;
+  document.getElementById('pillStreak').textContent = state.streak;
+  document.getElementById('pillPoints').textContent = state.points;
+
+  const tk = todayKey();
+  const log = state.completedLog[tk] || {};
+  const items = getTodayItems();
+  const listEl = document.getElementById('gamifyTaskList');
+  listEl.innerHTML = items.length ? items.map(it=>{
+    const done = !!log[it.id];
+    return `<div class="today-item ${done?'done':''}">
+      <input type="checkbox" ${done?'checked disabled':''} data-complete="${it.id}">
+      <div class="time">${fmtTime(it.startMin)}</div>
+      <div class="tt">${escapeHtml(it.title)}</div>
+    </div>`;
+  }).join('') : '<div class="empty">Hôm nay chưa có nhiệm vụ nào.</div>';
+  listEl.querySelectorAll('[data-complete]').forEach(cb=>cb.addEventListener('change', ()=>completeItem(cb.dataset.complete)));
+
+  const shopEl = document.getElementById('shopGrid');
+  shopEl.innerHTML = SHOP.map(item=>{
+    const owned = item.type==='theme' && state.inventory.some(i=>i.id===item.id);
+    const isActive = state.themeVariant===item.id;
+    let btnHtml;
+    if(item.type==='theme'){
+      btnHtml = owned
+        ? `<button class="btn ${isActive?'accent':'ghost'} small" data-select-theme="${item.id}">${isActive?'Đang dùng':'Sử dụng'}</button>`
+        : `<button class="btn secondary small" data-buy="${item.id}">Mua</button>`;
+    } else {
+      btnHtml = `<button class="btn secondary small" data-buy="${item.id}">Mua</button>`;
+    }
+    return `<div class="shop-item">
+      <b>${item.name}</b>
+      <div style="font-size:12.5px; color:var(--text-muted);">${item.desc}</div>
+      <div class="cost">${item.cost} xu</div>
+      ${btnHtml}
+    </div>`;
+  }).join('');
+  shopEl.querySelectorAll('[data-buy]').forEach(b=>b.addEventListener('click', ()=>buyShopItem(b.dataset.buy)));
+  shopEl.querySelectorAll('[data-select-theme]').forEach(b=>b.addEventListener('click', ()=>selectThemeVariant(b.dataset.selectTheme)));
+
+  const invEl = document.getElementById('inventoryList');
+  if(!state.inventory.length){ invEl.innerHTML = '<div class="empty">Túi đồ trống — hãy mua vật phẩm ở cửa hàng.</div>'; }
+  else {
+    invEl.innerHTML = state.inventory.map(inv=>{
+      const meta = SHOP.find(s=>s.id===inv.id);
+      const name = meta ? meta.name : inv.id;
+      let extra='';
+      if(inv.id==='reminder_boost') extra = ' · còn '+(inv.uses||0)+' lượt';
+      if(inv.id==='streak_freeze') extra = inv.used ? ' · đã dùng' : ' · sẵn sàng dùng';
+      return `<div class="task-item"><div class="task-color" style="background:var(--accent2)"></div><div class="task-info"><b>${name}</b><div>${extra}</div></div></div>`;
+    }).join('');
+  }
+
+  document.getElementById('checkinBtn').disabled = (state.lastCheckin===tk);
+}
+
+/* ============================================================
+   AI FEATURES
+   ============================================================ */
+function buildScheduleSummary(){
+  if(!state.tasks.length) return '(Người dùng chưa có nhiệm vụ nào trong thời khóa biểu.)';
+  const lines = state.tasks.map(t=>{
+    if(t.type==='fixed'){
+      return `- [Cố định] ${t.title}: ${DAY_NAMES[t.day]} ${fmtTime(t.startMin)}-${fmtTime(t.endMin)} (ưu tiên ${t.priority})`;
+    }
+    const placed = (t.assignments||[]).map(a=>DAY_NAMES[a.day]+' '+fmtTime(a.startMin)+'-'+fmtTime(a.endMin)).join(', ') || 'chưa xếp được';
+    return `- [Linh hoạt] ${t.title}: ${t.durationMin} phút × ${t.timesPerWeek} buổi/tuần, khung giờ ${t.preferredWindow}, đã xếp: ${placed}`;
+  });
+  const confLines = lastSolveResult.conflicts.map(c=>`- Xung đột: ${c.title} — ${c.reason}`);
+  return lines.join('\n') + (confLines.length ? '\n\nCác vấn đề CSP phát hiện được:\n'+confLines.join('\n') : '');
+}
+
+async function runAiSuggest(){
+  if(!sampleNs){ toast('Trợ lý AI không khả dụng.'); return; }
+  const box = document.getElementById('aiSuggestBox');
+  const btn = document.getElementById('aiSuggestBtn');
+  btn.disabled = true;
+  box.textContent = 'Đang suy nghĩ...';
+  const prompt = 'Bạn là chuyên gia tư vấn quản lý thời gian cho sinh viên/người đi làm. '
+    + 'Dưới đây là thời khóa biểu hiện tại của một người dùng:\n\n' + buildScheduleSummary()
+    + '\n\nHãy nhận xét ngắn gọn mức độ hợp lý của lịch này (thời gian nghỉ giữa các buổi, có bị dồn việc không, có đủ thời gian ngủ/nghỉ không), '
+    + 'tham khảo các nguyên tắc thời khóa biểu hiệu quả (kỹ thuật Pomodoro, học ngắt quãng theo khoảng - spaced repetition, làm việc khó vào "giờ vàng" buổi sáng, có thời gian đệm giữa các hoạt động). '
+    + 'Đưa ra tối đa 5 gợi ý cải thiện, viết bằng tiếng Việt, dùng gạch đầu dòng ngắn gọn, không lặp lại dữ liệu đầu vào.';
+  try{
+    const res = await sampleNs(prompt, {modelTier:'default', onText:({text})=>{ box.textContent = text; }});
+    box.textContent = res.text;
+  }catch(e){
+    box.textContent = e && e.text ? e.text : '';
+    if(e && e.code==='not_granted') toast('Bạn cần cho phép sử dụng AI để dùng tính năng này.');
+    else toast('Không thể lấy gợi ý lúc này, vui lòng thử lại.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+let chatTurns = [];
+function renderChat(){
+  const log = document.getElementById('chatLog');
+  log.innerHTML = chatTurns.map(m=>`<div class="chat-msg ${m.role}">${escapeHtml(m.content)}</div>`).join('');
+  log.scrollTop = log.scrollHeight;
+}
+async function sendChat(){
+  if(!sampleNs){ toast('Trợ lý AI không khả dụng.'); return; }
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if(!msg) return;
+  input.value='';
+  chatTurns.push({role:'user', content:msg});
+  renderChat();
+  const btn = document.getElementById('chatSendBtn');
+  btn.disabled = true;
+  const rules = 'Bạn là trợ lý quản lý thời gian, học tập và thói quen, trả lời bằng tiếng Việt, ngắn gọn, thực tế, thân thiện. '
+    + 'Bối cảnh thời khóa biểu hiện tại của người dùng:\n' + buildScheduleSummary();
+  const turnsForApi = [{role:'user', content:rules}, ...chatTurns];
+  chatTurns.push({role:'assistant', content:'...'});
+  renderChat();
+  try{
+    const res = await sampleNs(turnsForApi, {modelTier:'quick', cache:false, onText:({text})=>{
+      chatTurns[chatTurns.length-1].content = text; renderChat();
+    }});
+    chatTurns[chatTurns.length-1].content = res.text;
+  }catch(e){
+    chatTurns[chatTurns.length-1].content = (e && e.text) ? e.text : 'Xin lỗi, hiện chưa thể trả lời. Vui lòng thử lại.';
+  } finally {
+    renderChat();
+    btn.disabled = false;
+  }
+}
+
+async function runNlParse(){
+  if(!sampleNs){ toast('Trợ lý AI không khả dụng.'); return; }
+  const input = document.getElementById('nlInput');
+  const text = input.value.trim();
+  if(!text) return;
+  const btn = document.getElementById('nlParseBtn');
+  btn.disabled = true;
+  const preview = document.getElementById('nlPreview');
+  preview.innerHTML = '<div class="small-note">Đang phân tích...</div>';
+  const prompt = 'Phân tích câu sau thành một nhiệm vụ trong thời khóa biểu cá nhân. Câu: "' + text.replace(/"/g,"'") + '". '
+    + 'Trả về DUY NHẤT một JSON object đúng schema sau, không thêm chữ nào khác:\n'
+    + '{"title": string, "type": "fixed" hoặc "flexible", "day": số 0-6 (0=Thứ 2 ... 6=Chủ nhật, chỉ khi type=fixed, null nếu flexible), '
+    + '"startMin": số phút tính từ 0h (chỉ khi fixed), "endMin": số phút (chỉ khi fixed), '
+    + '"durationMin": số phút mỗi buổi (chỉ khi flexible, mặc định 60), "timesPerWeek": số buổi/tuần (chỉ khi flexible, mặc định 3), '
+    + '"preferredWindow": "morning"|"afternoon"|"evening"|"any" (chỉ khi flexible), "priority": 1|2|3 (mặc định 2)}';
+  try{
+    const data = await sampleNs.json(prompt, {modelTier:'quick'});
+    if(!data || !data.title || (data.type!=='fixed' && data.type!=='flexible')) throw new Error('bad shape');
+    const color = COLORS[state.tasks.length % COLORS.length];
+    let pending = {id:uuid(), title:String(data.title).slice(0,80), type:data.type, color, priority: [1,2,3].includes(+data.priority)?+data.priority:2};
+    if(data.type==='fixed'){
+      pending.day = Number.isInteger(data.day) ? Math.min(6,Math.max(0,data.day)) : 0;
+      pending.startMin = Number.isFinite(data.startMin) ? data.startMin : 420;
+      pending.endMin = Number.isFinite(data.endMin) && data.endMin>pending.startMin ? data.endMin : pending.startMin+60;
+    } else {
+      pending.durationMin = Number.isFinite(data.durationMin) ? Math.max(15,data.durationMin) : 60;
+      pending.timesPerWeek = Number.isFinite(data.timesPerWeek) ? Math.max(1,Math.min(14,data.timesPerWeek)) : 3;
+      pending.preferredWindow = ['morning','afternoon','evening','any'].includes(data.preferredWindow) ? data.preferredWindow : 'any';
+      pending.preferredDays = [0,1,2,3,4,5,6];
+      pending.assignments = [];
+    }
+    const detail = pending.type==='fixed'
+      ? DAY_NAMES[pending.day]+' '+fmtTime(pending.startMin)+'-'+fmtTime(pending.endMin)
+      : pending.durationMin+' phút × '+pending.timesPerWeek+' buổi/tuần';
+    preview.innerHTML = `<div class="task-item"><div class="task-color" style="background:${pending.color}"></div>
+      <div class="task-info"><b>${escapeHtml(pending.title)}</b><div>${detail}</div></div>
+      <div class="task-actions"><button class="btn accent small" id="nlConfirm">Thêm vào danh sách</button></div></div>`;
+    document.getElementById('nlConfirm').addEventListener('click', ()=>{
+      state.tasks.push(pending);
+      resolveSchedule(); schedulePersist(); renderAll();
+      preview.innerHTML=''; input.value='';
+      toast('Đã thêm nhiệm vụ từ AI.');
+    });
+  }catch(e){
+    preview.innerHTML = '<div class="small-note" style="color:var(--danger)">Không phân tích được câu này, vui lòng thử lại hoặc thêm thủ công.</div>';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ============================================================
+   STUDY BUDDIES (shared pool)
+   ============================================================ */
+function renderBuddyForm(){
+  document.getElementById('bName').value = state.profile.name || '';
+  document.getElementById('bSubjects').value = state.profile.subjects || '';
+  document.getElementById('bGoal').value = state.profile.goal || '';
+  document.getElementById('bContact').value = state.profile.contact || '';
+}
+
+async function saveBuddyProfile(){
+  state.profile = {
+    name: document.getElementById('bName').value.trim(),
+    subjects: document.getElementById('bSubjects').value.trim(),
+    goal: document.getElementById('bGoal').value.trim(),
+    contact: document.getElementById('bContact').value.trim(),
+  };
+  if(!state.profile.name){ toast('Vui lòng nhập biệt danh.'); return; }
+  schedulePersist();
+  if(!dbAvailable){ toast('Không thể công khai hồ sơ (thiếu danh tính), chỉ lưu tạm.'); return; }
+  try{
+    await dbNs.collection('pool').doc(uid).set({
+      name: state.profile.name, subjects: state.profile.subjects, goal: state.profile.goal, contact: state.profile.contact,
+      updatedAt: Date.now(),
+    });
+    state.profilePublic = true;
+    toast('Đã lưu và công khai hồ sơ để tìm bạn học.');
+  }catch(e){ toast('Không thể công khai hồ sơ lúc này.'); }
+}
+
+async function hideBuddyProfile(){
+  if(!dbAvailable) return;
+  try{
+    const ref = dbNs.collection('pool').doc(uid);
+    await ref.delete();
+    state.profilePublic = false;
+    toast('Đã ẩn hồ sơ khỏi danh sách tìm bạn học.');
+  }catch(e){ toast('Không thể ẩn hồ sơ lúc này.'); }
+}
+
+function matchScore(mySubjects, myGoal, other){
+  const mySet = new Set(mySubjects.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean));
+  const oSet = new Set((other.subjects||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean));
+  let overlap=0; mySet.forEach(s=>{ if(oSet.has(s)) overlap++; });
+  let score = overlap*30;
+  const myWords = new Set(myGoal.toLowerCase().split(/\s+/).filter(w=>w.length>3));
+  const oWords = new Set((other.goal||'').toLowerCase().split(/\s+/).filter(w=>w.length>3));
+  let go=0; myWords.forEach(w=>{ if(oWords.has(w)) go++; });
+  score += Math.min(go,3)*10;
+  return Math.min(100, score);
+}
+
+async function findBuddies(){
+  const listEl = document.getElementById('buddyList');
+  if(!dbAvailable){ listEl.innerHTML = '<div class="empty">Cần đăng nhập để tìm bạn học.</div>'; return; }
+  const mySubjects = document.getElementById('bSubjects').value.trim();
+  const myGoal = document.getElementById('bGoal').value.trim();
+  listEl.innerHTML = '<div class="small-note">Đang tìm...</div>';
+  try{
+    const snap = await dbNs.collection('pool').limit(200).get();
+    const others = snap.docs.filter(d=>d.id!==uid).map(d=>({id:d.id, ...d.data()}));
+    const scored = others.map(o=>({...o, score: matchScore(mySubjects, myGoal, o)}))
+      .sort((a,b)=>b.score-a.score).slice(0,8);
+    if(!scored.length){ listEl.innerHTML = '<div class="empty">Chưa có ai khác trong danh sách. Hãy quay lại sau!</div>'; return; }
+    listEl.innerHTML = scored.map(o=>{
+      const tags = (o.subjects||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${escapeHtml(s)}</span>`).join('');
+      return `<div class="buddy-card">
+        <div class="match-badge">${o.score}%</div>
+        <div style="flex:1;">
+          <b>${escapeHtml(o.name||'Ẩn danh')}</b>
+          <div style="margin:4px 0;">${tags}</div>
+          <div style="font-size:12.5px; color:var(--text-muted);">${escapeHtml(o.goal||'')}</div>
+          ${o.contact ? `<div style="font-size:12.5px; margin-top:4px;">Liên hệ: <b>${escapeHtml(o.contact)}</b></div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    listEl.innerHTML = '<div class="empty">Không thể tải danh sách lúc này.</div>';
+  }
+}
+
+/* ============================================================
+   REMINDERS
+   ============================================================ */
+function ensureNotifPermission(){
+  if(notifPermissionAsked) return;
+  notifPermissionAsked = true;
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission().catch(()=>{});
+  }
+}
+function fireReminder(item, lead){
+  toast('Sắp đến giờ: ' + item.title + ' lúc ' + fmtTime(item.startMin) + (lead===15 ? ' (nhắc sớm 15 phút)' : ''));
+  if('Notification' in window && Notification.permission==='granted'){
+    try{ new Notification('Sắp đến giờ: ' + item.title, {body:'Bắt đầu lúc ' + fmtTime(item.startMin)}); }catch(e){}
+  }
+}
+function checkReminders(){
+  const items = getTodayItems();
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  for(const it of items){
+    const key = todayKey()+'_'+it.id;
+    if(notifiedSet.has(key)) continue;
+    const lead = reminderBoostUses()>0 ? 15 : 5;
+    if(nowMin >= it.startMin-lead && nowMin < it.endMin){
+      fireReminder(it, lead);
+      notifiedSet.add(key);
+      if(lead===15) consumeReminderBoost();
+    }
+  }
+  renderBanner();
+}
+
+/* ============================================================
+   TAB SWITCHING & WIRING
+   ============================================================ */
+function switchTab(tab){
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.querySelectorAll('.rail-tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+}
+
+function renderAll(){
+  document.getElementById('pillStreak').textContent = state.streak;
+  document.getElementById('pillPoints').textContent = state.points;
+  renderWeekGrid();
+  renderBanner();
+  renderTaskList();
+  renderGamify();
+  renderBuddyForm();
+}
+
+function wireEvents(){
+  document.querySelectorAll('.rail-tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>switchTab(btn.dataset.tab));
+  });
+
+  document.getElementById('themeToggle').addEventListener('click', ()=>{
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur==='dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try{ localStorage.setItem('scheduler_theme_mode', next); }catch(e){}
+  });
+  try{
+    const saved = localStorage.getItem('scheduler_theme_mode');
+    if(saved) document.documentElement.setAttribute('data-theme', saved);
+  }catch(e){}
+
+  document.querySelectorAll('input[name=taskType]').forEach(r=>r.addEventListener('change', toggleFormFields));
+  document.getElementById('saveTaskBtn').addEventListener('click', saveTaskFromForm);
+  document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
+  document.getElementById('nlParseBtn').addEventListener('click', runNlParse);
+
+  document.getElementById('solveBtn').addEventListener('click', ()=>{
+    resolveSchedule(); renderAll(); toast('Đã xếp lại thời khóa biểu.');
+  });
+  document.getElementById('dayStartSel').addEventListener('change', (e)=>{
+    state.settings.dayStartMin = +e.target.value;
+    if(state.settings.dayStartMin >= state.settings.dayEndMin) state.settings.dayEndMin = state.settings.dayStartMin+60;
+    resolveSchedule(); schedulePersist(); renderAll(); fillHourSelects();
+  });
+  document.getElementById('dayEndSel').addEventListener('change', (e)=>{
+    state.settings.dayEndMin = +e.target.value;
+    if(state.settings.dayEndMin <= state.settings.dayStartMin) state.settings.dayStartMin = Math.max(0, state.settings.dayEndMin-60);
+    resolveSchedule(); schedulePersist(); renderAll(); fillHourSelects();
+  });
+
+  document.getElementById('aiSuggestBtn').addEventListener('click', runAiSuggest);
+  document.getElementById('chatSendBtn').addEventListener('click', sendChat);
+  document.getElementById('chatInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendChat(); });
+
+  document.getElementById('saveBuddyBtn').addEventListener('click', saveBuddyProfile);
+  document.getElementById('hideBuddyBtn').addEventListener('click', hideBuddyProfile);
+  document.getElementById('findBuddyBtn').addEventListener('click', findBuddies);
+
+  document.getElementById('checkinBtn').addEventListener('click', doCheckin);
+
+  document.body.addEventListener('click', ensureNotifPermission, {once:true});
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', function(){
+  fillHourSelects();
+  renderColorChips();
+  renderDayChips();
+  wireEvents();
+  initData();
+  setInterval(checkReminders, 20000);
+  setInterval(()=>{ document.getElementById('pillStreak').textContent = state.streak; }, 60000);
+});
+
+})();
+</script>
+</body>
+</html>
